@@ -258,6 +258,8 @@ body { display: flex; flex-direction: column; }
 .trd-atab.active{background:rgba(90,140,255,.12);border-color:rgba(90,140,255,.45);color:#cfe0ff}
 .trd-acct-panel{display:flex;flex-direction:column;gap:12px;margin-bottom:12px}
 .trd-acct-panel .trd-kpis{margin-bottom:0}
+.trd-reset-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px}
+.trd-reset-bar .trd-sub{margin:0}
 .trd-pos-wrap .trd-tbl{min-width:520px}
 @media (max-width:900px){.trd-grid{grid-template-columns:minmax(0,1fr)}.trd-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
@@ -2259,39 +2261,44 @@ body { display: flex; flex-direction: column; }
       </div>
 
       <div class="trd-acct-tabs">
-        <button class="trd-atab active" data-acct="bt">回测账户<span class="trd-acct-sub" id="trdTabSub_bt"></span></button>
-        <button class="trd-atab" data-acct="lv">实盘账户<span class="trd-acct-sub" id="trdTabSub_lv"></span></button>
+        <button class="trd-atab active" data-acct="bt">回测<span class="trd-acct-sub" id="trdTabSub_bt"></span></button>
+        <button class="trd-atab" data-acct="lv">实盘<span class="trd-acct-sub" id="trdTabSub_lv"></span></button>
       </div>
 
-      <!-- 回测账户模块 -->
+      <!-- 回测账户模块：只读回测结果 JSON（backtrader / SuperPlot 导出） -->
       <div class="trd-acct-panel" id="trdPanel_bt">
-        <div class="trd-kpis" id="trdKpis_bt"></div>
         <div class="trd-card">
-          <div class="trd-card-h"><span>累计收益曲线</span><span class="trd-sub" id="trdNavInfo_bt"></span></div>
-          <div class="trd-chart" id="trdNavChart_bt"></div>
-        </div>
-        <div class="trd-card">
-          <div class="trd-card-h"><span>持仓</span><span class="trd-sub" id="trdPosCnt_bt"></span></div>
-          <div class="trd-scroll trd-pos-wrap" id="trdPos_bt"></div>
-        </div>
-        <div class="trd-grid">
-          <div class="trd-card">
-            <div class="trd-card-h"><span>成交记录</span><span class="trd-sub" id="trdTradeCnt_bt"></span></div>
-            <div class="trd-scroll" id="trdTrades_bt"></div>
-          </div>
-          <div class="trd-card">
-            <div class="trd-card-h"><span>条件单</span><span class="trd-sub" id="trdCondCnt_bt"></span></div>
-            <div class="trd-scroll" id="trdConds_bt"></div>
+          <div class="trd-card-h"><span>回测结果文件</span><span class="trd-sub" id="btDirTip">扫描 backtest_results/</span></div>
+          <div class="trd-body">
+            <div class="trd-row">
+              <select id="btFileSel" class="trd-in" style="flex:1"><option value="">加载中…</option></select>
+              <button class="trd-btn ghost" id="btReload">重新扫描</button>
+              <button class="trd-btn buy" id="btPin">暂存指标</button>
+            </div>
+            <div class="trd-sub" id="btFileMeta" style="margin-top:6px"></div>
           </div>
         </div>
+        <div class="trd-kpis" id="btKpis"></div>
         <div class="trd-card">
-          <div class="trd-card-h"><span>执行日志</span><span class="trd-sub">回测批次计划执行记录</span></div>
-          <div class="trd-scroll" id="trdLogs_bt"></div>
+          <div class="trd-card-h"><span>权益曲线</span><span class="trd-sub" id="btEqInfo"></span></div>
+          <div class="trd-chart" id="btEqChart"></div>
+        </div>
+        <div class="trd-card">
+          <div class="trd-card-h"><span>成交记录</span><span class="trd-sub" id="btTradeCnt">逐笔买卖</span></div>
+          <div class="trd-scroll" id="btTrades"></div>
+        </div>
+        <div class="trd-card">
+          <div class="trd-card-h"><span>暂存回测指标</span><span class="trd-sub">点「暂存指标」把当前文件记入下表，便于横向对比</span></div>
+          <div class="trd-scroll" id="btPins"></div>
         </div>
       </div>
 
       <!-- 实盘账户模块 -->
       <div class="trd-acct-panel" id="trdPanel_lv" style="display:none">
+        <div class="trd-card trd-reset-bar">
+          <span class="trd-sub">实盘账本独立存储 · 清空后回到初始资金，不影响回测</span>
+          <button class="trd-btn ghost" id="trdReset_lv">清空实盘账本</button>
+        </div>
         <div class="trd-kpis" id="trdKpis_lv"></div>
         <div class="trd-card">
           <div class="trd-card-h"><span>累计收益曲线</span><span class="trd-sub" id="trdNavInfo_lv"></span></div>
@@ -2357,30 +2364,24 @@ body { display: flex; flex-direction: column; }
           <div class="trd-card-h"><span>执行日志</span><span class="trd-sub">实盘批次计划 / 定时任务执行记录</span></div>
           <div class="trd-scroll" id="trdLogs_lv"></div>
         </div>
-      </div>
-
-      <!-- 批次计划执行：按所选模式写入对应账户 -->
-      <div class="trd-card">
-        <div class="trd-card-h"><span>批次计划执行</span><span class="trd-sub">只接受 JSON · 多批次 / 多股票 / 多条件卖出</span></div>
-        <div class="trd-body">
-          <div class="trd-row">
-            <input type="file" id="trdPlanFile" accept=".json,application/json" class="trd-file">
-            <span class="trd-sub" id="trdPlanName">未选择文件</span>
+        <div class="trd-card">
+          <div class="trd-card-h"><span>实盘批次计划执行</span><span class="trd-sub">只接受 JSON · 多批次 / 多股票 / 多条件卖出</span></div>
+          <div class="trd-body">
+            <div class="trd-row">
+              <input type="file" id="trdPlanFile" accept=".json,application/json" class="trd-file">
+              <span class="trd-sub" id="trdPlanName">未选择文件</span>
+            </div>
+            <div class="trd-row">
+              <button class="trd-btn ghost" id="trdPlanValidate">校验</button>
+              <button class="trd-btn buy" id="trdPlanRun">实盘执行</button>
+            </div>
+            <div class="trd-sub" style="margin-top:6px;line-height:1.6">
+              模板：<b>plans/templates/quant_batch_template.json</b> · 示例 <b>plans/templates/quant_batch_example.json</b><br>
+              实盘计划放 <b>plans/live/</b>；回测请用 backtrader 跑完后把结果 JSON 放进 <b>backtest_results/</b><br>
+              批次时间支持 once(某日) / daily(每交易日) / monthly_nth_weekday(每月第 N 个周 X)
+            </div>
+            <div class="trd-result" id="trdPlanRes"></div>
           </div>
-          <div class="trd-row">
-            <select id="trdPlanMode" class="trd-in">
-              <option value="backtest">回测：补执行历史批次</option>
-              <option value="live">实盘：过期货跳过并记日志</option>
-            </select>
-            <button class="trd-btn ghost" id="trdPlanValidate">校验</button>
-            <button class="trd-btn buy" id="trdPlanRun">执行</button>
-          </div>
-          <div class="trd-sub" style="margin-top:6px;line-height:1.6">
-            模板：<b>plans/templates/quant_batch_template.json</b> · 示例 <b>plans/templates/quant_batch_example.json</b><br>
-            实盘计划放 <b>plans/live/</b>，回测计划放 <b>plans/backtest/</b><br>
-            批次时间支持 once(某日) / daily(每交易日) / monthly_nth_weekday(每月第 N 个周 X)
-          </div>
-          <div class="trd-result" id="trdPlanRes"></div>
         </div>
       </div>
     </div>
@@ -4036,7 +4037,13 @@ const App = {
     if (!this._trdAcct) this._trdAcct = 'bt';
     const $ = id => document.getElementById(id);
     const on = (id, ev, fn) => { const el = $(id); if (el) el[ev] = fn; };
-    on('trdRefresh', 'onclick', () => this.loadTrade());
+    on('trdRefresh', 'onclick', () => { this.loadTrade(); this.loadBtFiles(true); });
+    on('trdReset_lv', 'onclick', () => this.trdReset('live'));
+    on('btReload', 'onclick', () => this.loadBtFiles(true));
+    on('btPin', 'onclick', () => this.btPin());
+    const bsel = document.getElementById('btFileSel');
+    if (bsel) bsel.onchange = () => this.loadBtFile(bsel.value);
+    this.loadBtFiles();
     on('trdPlanValidate', 'onclick', () => this.trdPlan('validate'));
     on('trdPlanRun', 'onclick', () => this.trdPlan('run'));
     on('trdJobSave', 'onclick', () => this.trdSaveJob());
@@ -4060,6 +4067,7 @@ const App = {
 
   trdSwitchAcct(m) {
     this._trdAcct = m;
+    localStorage.setItem('ak_trd_acct', m);
     document.querySelectorAll('.trd-atab').forEach(b => {
       b.classList.toggle('active', b.getAttribute('data-acct') === m);
     });
@@ -4068,7 +4076,8 @@ const App = {
     if (bt) bt.style.display = m === 'bt' ? '' : 'none';
     if (lv) lv.style.display = m === 'lv' ? '' : 'none';
     const d = (this._trd || {})[m];
-    if (d) this.trdRenderNav(d.snaps || [], m, (d.acc || {}).initial_cash);
+    if (d && m === 'lv') this.trdRenderNav(d.snaps || [], m, (d.acc || {}).initial_cash);
+    if (m === 'bt' && this._btEq) setTimeout(() => { try { this._btEq.resize(); } catch (e) {} }, 30);
   },
 
   trdFetch(path, opts) {
@@ -4077,12 +4086,224 @@ const App = {
       .then(r => r.json()).catch(() => null);
   },
 
+  async trdReset(mode) {
+    const label = mode === 'live' ? '实盘' : '回测';
+    const ok = window.confirm(
+      '确定清空' + label + '账本？\n\n持仓、成交记录、条件单、收益曲线、批次执行标记、计划股票池都会删除，' +
+      '资金回到初始值；' + (mode === 'live' ? '回测' : '实盘') + '账本不受影响。');
+    if (!ok) return;
+    const res = document.getElementById('trdPlanRes');
+    if (res) res.textContent = '正在清空' + label + '账本…';
+    const r = await this.trdFetch('/sim/reset', { method: 'POST', body: JSON.stringify({ mode: mode }) });
+    if (!r || !r.ok) {
+      if (res) res.textContent = label + '账本清空失败：' + ((r && r.reason) || '后端未响应');
+      this.trdFlash(label + '账本清空失败');
+      return;
+    }
+    this.trdFlash(label + '账本已清空');
+    if (res) res.textContent = '✓ ' + label + '账本已清空，已回到初始状态（初始资金 50 万，无持仓、无成交、无条件单）';
+    this.loadTrade();
+  },
+
   trdFlash(msg) {
     const el = document.getElementById('trdJobTip');
     if (!el) return;
     el.textContent = msg;
     clearTimeout(this._trdFlashT);
     this._trdFlashT = setTimeout(() => { el.textContent = ''; }, 6000);
+  },
+
+  // ---------- 回测结果浏览（backtrader / SuperPlot 导出 JSON） ----------
+  _btPct(v, isPct) {
+    const n = Number(v);
+    if (v === null || v === undefined || v === '' || !isFinite(n)) return '-';
+    return (n > 0 ? '+' : '') + (isPct ? n : n * 100).toFixed(2) + '%';
+  },
+
+  async loadBtFiles(keep) {
+    const sel = document.getElementById('btFileSel');
+    const tip = document.getElementById('btDirTip');
+    const r = await this.trdFetch('/bt/list');
+    if (!r || !r.files) {
+      if (sel) sel.innerHTML = '<option value="">读取失败</option>';
+      return;
+    }
+    this._btFiles = r.files;
+    if (tip) tip.textContent = r.files.length
+      ? '目录 ' + (r.dir || '') + ' · ' + r.files.length + ' 个结果文件'
+      : '目录 ' + (r.dir || '') + ' · 暂无结果文件';
+    if (!r.files.length) {
+      const metaEl = document.getElementById('btFileMeta');
+      if (metaEl) metaEl.textContent = '把 backtrader 导出的回测 JSON 放进 backtest_results/，刷新后自动出现在下拉列表。';
+      ['btKpis', 'btTrades'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+      this.loadBtPins();
+      return;
+    }
+    const cur = keep ? ((sel && sel.value) || '') : (localStorage.getItem('ak_bt_file') || '');
+    const pick = (cur && r.files.some(f => f.file === cur)) ? cur : r.files[0].file;
+    if (sel) {
+      sel.innerHTML = r.files.map(f => {
+        const m = f.metrics || {};
+        const roi = (m.total_roi === undefined || m.total_roi === null) ? '' : ' · ' + (Number(m.total_roi) * 100).toFixed(1) + '%';
+        return '<option value="' + f.file + '">' + f.file + ' · ' + (f.strategy || '-') +
+          (f.timeframe ? ' · ' + f.timeframe : '') + roi + '</option>';
+      }).join('');
+      sel.value = pick;
+    }
+    this.loadBtFile(pick);
+    this.loadBtPins();
+  },
+
+  async loadBtFile(name) {
+    if (!name) return;
+    localStorage.setItem('ak_bt_file', name);
+    const d = await this.trdFetch('/bt/detail?file=' + encodeURIComponent(name));
+    const metaEl = document.getElementById('btFileMeta');
+    if (!d || !d.ok) {
+      if (metaEl) metaEl.textContent = '读取失败：' + ((d && d.reason) || name);
+      return;
+    }
+    this._bt = d;
+    const st = d.strategy || {}, m = d.metrics || {};
+    if (metaEl) metaEl.textContent = (st.name || d.file) + (st.timeframe ? ' · ' + st.timeframe : '') +
+      (st.code ? ' · ' + st.code : ' · 未绑定标的（K 线不显示买卖点，需在 JSON 顶层加 code）') + ' · ' + (d.orders || []).length + ' 笔成交';
+    const sub = document.getElementById('trdTabSub_bt');
+    if (sub) sub.textContent = (m.total_roi === undefined || m.total_roi === null) ? '结果浏览' : this._btPct(m.total_roi, false);
+    this.btRenderKpi(d);
+    this.btRenderEquity(d);
+    this.btRenderTrades(d.orders || []);
+  },
+
+  btRenderKpi(d) {
+    const el = document.getElementById('btKpis');
+    if (!el) return;
+    const m = d.metrics || {};
+    const col = v => (Number(v) >= 0 ? 'color:#e5544b' : 'color:#2fa56a');
+    const items = [
+      ['总收益率', this._btPct(m.total_roi), col(m.total_roi)],
+      ['年化收益', this._btPct(m.annual_roi), col(m.annual_roi)],
+      ['净收益', m.total_pnl == null ? '-' : Number(m.total_pnl).toFixed(2)],
+      ['最大回撤', m.max_drawdown == null ? '-' : '-' + Math.abs(Number(m.max_drawdown)).toFixed(2) + '%', 'color:#2fa56a'],
+      ['夏普比率', m.sharpe_ratio == null ? '-' : Number(m.sharpe_ratio).toFixed(2)],
+      ['索提诺', m.sortino_ratio == null ? '-' : Number(m.sortino_ratio).toFixed(2)],
+      ['卡玛比率', m.calmar_ratio == null ? '-' : Number(m.calmar_ratio).toFixed(2)],
+      ['胜率', m.win_rate == null ? '-' : Number(m.win_rate).toFixed(2) + '%'],
+      ['盈亏比', m.profit_factor == null ? '-' : Number(m.profit_factor).toFixed(2)],
+      ['SQN', m.sqn == null ? '-' : Number(m.sqn).toFixed(2)],
+      ['交易次数', m.total_trades == null ? '-' : String(m.total_trades)],
+      ['波动率', m.volatility == null ? '-' : (Number(m.volatility) * 100).toFixed(2) + '%']
+    ];
+    el.innerHTML = items.map(x => '<div class="trd-kpi"><span>' + x[0] + '</span><b style="' + (x[2] || '') + '">' + x[1] + '</b></div>').join('');
+  },
+
+  btRenderEquity(d) {
+    const el = document.getElementById('btEqChart');
+    const info = document.getElementById('btEqInfo');
+    if (!el) return;
+    const pts = (d.equity || []).filter(p => p && p.t != null && p.v != null);
+    if (!pts.length) {
+      el.innerHTML = '<div style="padding:52px 0;text-align:center;color:#7d8794;font-size:12px">该文件没有 portfolio_data，无法绘制权益曲线</div>';
+      if (info) info.textContent = '';
+      return;
+    }
+    const first = Number(pts[0].v) || 0, last = Number(pts[pts.length - 1].v) || 0;
+    const ret = first ? (last - first) / first * 100 : 0;
+    if (info) info.textContent = first.toFixed(0) + ' → ' + last.toFixed(0) + ' · ' + (ret >= 0 ? '+' : '') + ret.toFixed(2) + '% · ' + pts.length + ' 点（降采样）';
+    if (!window.echarts) return;
+    try {
+      const inst = this._btEq || (this._btEq = window.echarts.init(el));
+      inst.setOption({
+        animation: false,
+        grid: { left: 58, right: 18, top: 18, bottom: 34 },
+        tooltip: {
+          trigger: 'axis', backgroundColor: 'rgba(20,26,36,.95)', borderColor: '#2c3542',
+          textStyle: { color: '#dfe4ea', fontSize: 12 },
+          valueFormatter: v => (Number(v) || 0).toFixed(2)
+        },
+        xAxis: {
+          type: 'category', data: pts.map(p => String(p.t).slice(0, 10)), boundaryGap: false,
+          axisLine: { lineStyle: { color: '#2c3542' } }, axisTick: { show: false },
+          axisLabel: { color: '#8c96a5', fontSize: 10, hideOverlap: true }
+        },
+        yAxis: {
+          type: 'value', scale: true, axisLine: { show: false }, axisTick: { show: false },
+          axisLabel: { color: '#8c96a5', fontSize: 10 },
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,.06)' } }
+        },
+        dataZoom: [{ type: 'inside' }],
+        series: [{
+          name: '账户权益', type: 'line', data: pts.map(p => Number(p.v)), symbol: 'none',
+          lineStyle: { width: 1.6, color: '#e5544b' },
+          areaStyle: { color: 'rgba(229,84,75,.12)' }
+        }]
+      }, true);
+    } catch (e) { /* ECharts 不可用时保持空白，不影响其他模块 */ }
+  },
+
+  btRenderTrades(orders) {
+    const el = document.getElementById('btTrades');
+    const cnt = document.getElementById('btTradeCnt');
+    if (!el) return;
+    if (cnt) cnt.textContent = (orders || []).length + ' 笔买卖';
+    if (!orders || !orders.length) {
+      el.innerHTML = '<div style="padding:22px;text-align:center;color:#7d8794;font-size:12px">该文件没有 orders_data</div>';
+      return;
+    }
+    let h = '<table class="trd-tbl"><thead><tr><th>时间</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>持仓</th></tr></thead><tbody>';
+    orders.forEach(o => {
+      const buy = String(o.type || '').toLowerCase() === 'buy';
+      const dt = String(o.datetime || '').replace('T', ' ');
+      h += '<tr><td class="mute">' + dt.slice(0, 16) +
+        '</td><td class="' + (buy ? 'up' : 'down') + '">' + (buy ? '买入' : '卖出') +
+        '</td><td>' + (Number(o.price) || 0).toFixed(3) +
+        '</td><td>' + (o.size == null ? '-' : Math.abs(Number(o.size)).toFixed(2)) +
+        '</td><td>' + (o.value == null ? '-' : Math.abs(Number(o.value)).toFixed(2)) +
+        '</td><td class="mute">' + (o.comm == null ? '-' : Number(o.comm).toFixed(2)) +
+        '</td><td class="mute">' + (o.pos_size == null ? '-' : Math.abs(Number(o.pos_size)).toFixed(2)) + '</td></tr>';
+    });
+    el.innerHTML = h + '</tbody></table>';
+  },
+
+  async btPin() {
+    const sel = document.getElementById('btFileSel');
+    const f = sel && sel.value;
+    if (!f) return;
+    const r = await this.trdFetch('/bt/pin', { method: 'POST', body: JSON.stringify({ file: f }) });
+    this.trdFlash(r && r.ok ? '已暂存：' + f : '暂存失败');
+    this.loadBtPins();
+  },
+
+  async loadBtPins() {
+    const el = document.getElementById('btPins');
+    if (!el) return;
+    const r = await this.trdFetch('/bt/pins');
+    const rows = (r && r.pins) || [];
+    if (!rows.length) {
+      el.innerHTML = '<div style="padding:22px;text-align:center;color:#7d8794;font-size:12px">还没有暂存记录。选好一个回测结果后点右上「暂存指标」，这里会累计成对比表。</div>';
+      return;
+    }
+    let h = '<table class="trd-tbl"><thead><tr><th>策略</th><th>周期</th><th>总收益</th><th>年化</th><th>最大回撤</th><th>夏普</th><th>胜率</th><th>交易</th><th>暂存时间</th><th></th></tr></thead><tbody>';
+    rows.forEach(x => {
+      const m = x.metrics || {};
+      h += '<tr><td title="' + (x.file || '') + '">' + (x.strategy || x.file || '-') +
+        '</td><td>' + (x.timeframe || '-') +
+        '</td><td class="' + (Number(m.total_roi) >= 0 ? 'up' : 'down') + '">' + this._btPct(m.total_roi) +
+        '</td><td>' + this._btPct(m.annual_roi) +
+        '</td><td class="down">' + (m.max_drawdown == null ? '-' : '-' + Math.abs(Number(m.max_drawdown)).toFixed(2) + '%') +
+        '</td><td>' + (m.sharpe_ratio == null ? '-' : Number(m.sharpe_ratio).toFixed(2)) +
+        '</td><td>' + (m.win_rate == null ? '-' : Number(m.win_rate).toFixed(2) + '%') +
+        '</td><td>' + (m.total_trades == null ? '-' : m.total_trades) +
+        '</td><td class="mute">' + (x.pinned_at || '') +
+        '</td><td><button class="trd-btn ghost" data-pin="' + (x.file || '') + '">移除</button></td></tr>';
+    });
+    el.innerHTML = h + '</tbody></table>';
+    el.querySelectorAll('[data-pin]').forEach(btn => {
+      btn.onclick = async () => {
+        const f = btn.getAttribute('data-pin');
+        await this.trdFetch('/bt/pin/delete', { method: 'POST', body: JSON.stringify({ file: f }) });
+        this.loadBtPins();
+      };
+    });
   },
 
   async loadTrade() {
@@ -4112,16 +4333,17 @@ const App = {
     modes.forEach((pair) => {
       const m = pair[0];
       const d = out[m];
-      this.trdRenderKpi(d.acc, m, d.snaps, d.trades);
-      this.trdRenderPos(d.acc.positions || [], d.conds, m);
-      this.trdRenderConds(d.conds, m);
-      this.trdRenderTrades(d.trades, m);
-      this.trdRenderLogs(d.logs, m);
+      if (m === 'lv') {
+        this.trdRenderKpi(d.acc, 'lv', d.snaps, d.trades);
+        this.trdRenderPos(d.acc.positions || [], d.conds, 'lv');
+        this.trdRenderConds(d.conds, 'lv');
+        this.trdRenderTrades(d.trades, 'lv');
+        this.trdRenderLogs(d.logs, 'lv');
+      }
       const sub = document.getElementById('trdTabSub_' + m);
-      if (sub) sub.textContent = ((d.acc.nav || 0) / 10000).toFixed(2) + ' 万';
+      if (sub && m === 'lv') sub.textContent = ((d.acc.nav || 0) / 10000).toFixed(2) + ' 万';
     });
     if (this._trdAcct === 'lv') this.trdRenderNav(out.lv.snaps, 'lv', out.lv.acc.initial_cash);
-    else this.trdRenderNav(out.bt.snaps, 'bt', out.bt.acc.initial_cash);
     this.trdRenderJobs(this._trdJobs);
   },
 
@@ -4415,11 +4637,10 @@ const App = {
       if (res) res.textContent = 'JSON 解析失败：' + e.message; return;
     }
     if (!obj || !obj.batches) { if (res) res.textContent = '缺少 batches 数组'; return; }
-    const mode = ($('trdPlanMode') || {}).value || 'backtest';
+    const mode = 'live';
     const resData = { content: text, mode: mode, path: '' };
-    const target = (mode === 'live') ? 'lv' : 'bt';
-    this.trdSwitchAcct(target);
-    if (res) res.textContent = (action === 'validate' ? '校验中…' : '执行中…（' + mode + ' 账户）');
+    this.trdSwitchAcct('lv');
+    if (res) res.textContent = (action === 'validate' ? '校验中…' : '执行中…（实盘账户）');
     const r = await this.trdFetch('/sim/plan/' + action,
       { method: 'POST', body: JSON.stringify(resData) });
     if (!r) { if (res) res.textContent = '后端未响应'; return; }
@@ -4437,9 +4658,15 @@ const App = {
       (x.fills && x.fills[0] ? ('@' + x.fills[0].price) : '') +
       (x.reason ? (' · ' + x.reason) : ''));
     const skip = (r.skipped || []).map(s => '— 跳过 ' + s.batch + '（' + s.reason + '）');
+    const rp = r.replay;
+    const replayLine = (rp && rp.days)
+      ? '↻ 历史回放 ' + rp.days + ' 个交易日（' + (rp.from || '') + ' → ' + (rp.to || '') + '）· 条件触发 ' +
+        (rp.conditions || 0) + ' 次 · 回放成交 ' + (rp.fills || 0) + ' 笔'
+      : '';
     if (res) res.textContent = (r.ok === false
       ? ('失败：' + (r.reason || '') + (r.errors && r.errors.length ? '\n' + r.errors.join('\n') : ''))
       : ('模式 ' + r.mode + ' · 成交 ' + (r.success || 0) + ' / 失败 ' + (r.failed || 0))) +
+      (replayLine ? '\n' + replayLine : '') +
       '\n' + lines.concat(skip).join('\n');
     this.loadTrade();
   },
@@ -7279,13 +7506,17 @@ document.addEventListener('DOMContentLoaded', () => App.init());
   async function loadStock(code) {
     S.code = code;
     document.querySelectorAll('.s-item').forEach(x => x.classList.toggle('active', x.dataset.code === code));
-    const [k, ind, q, tr] = await Promise.all([
+    // K 线买卖点按交易页当前模式取，回测与实盘互不干扰
+    const acct = localStorage.getItem('ak_trd_acct') || 'bt';
+    const btFile = localStorage.getItem('ak_bt_file') || '';
+    const [k, ind, q, tr, bm] = await Promise.all([
       fetch(`${API}/stock/kline?code=${code}&days=${S.days}&freq=${S.freq}`).then(r => r.json()).catch(() => null),
       fetch(`${API}/stock/indicators?code=${code}&days=${S.days}&freq=${S.freq}`).then(r => r.json()).catch(() => null),
       fetch(`${API}/stock/quote?code=${code}`).then(r => r.json()).catch(() => null),
-      fetch(`${API}/sim/trades?code=${code}&limit=300`).then(r => r.json()).catch(() => null)
+      acct === 'lv' ? fetch(`${API}/sim/trades?code=${code}&limit=300&mode=live`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+      (acct === 'bt' && btFile) ? fetch(`${API}/bt/marks?file=${encodeURIComponent(btFile)}&code=${code}`).then(r => r.json()).catch(() => null) : Promise.resolve(null)
     ]);
-    S.simTrades = (tr && tr.trades) || [];
+    S.simTrades = ((bm && bm.marks) || []).concat((tr && tr.trades) || []);
     if (!k || !k.kline || !k.kline.length) {
       document.getElementById('skStatus').innerHTML = '<b>暂无数据</b>';
       return;

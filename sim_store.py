@@ -212,12 +212,17 @@ def init(mode=None):
 
 
 def reset(cash=None):
-    """清空当前模式账本，重置为初始资金。"""
+    """清空当前模式账本，重置为初始资金。
+
+    批次执行标记与计划股票池一并清掉：否则清空后再上传同一个计划文件，
+    会被 plan_marked 判成「今天已执行」而全部跳过。
+    """
     init()
     with _LOCK:
         c = _conn()
         try:
-            for t in ('position', 'orders', 'trades', 'snapshots', 'cond_orders', 'auto_logs'):
+            for t in ('position', 'orders', 'trades', 'snapshots', 'cond_orders',
+                      'auto_logs', 'plan_marks', 'plan_pool'):
                 c.execute('DELETE FROM %s' % t)
             amt = float(cash) if cash and float(cash) > 0 else DEFAULT_CASH
             c.execute(

@@ -3978,6 +3978,83 @@ def _write_snapshot(asof, prices=None):
     return acc
 
 
+def _sim_bt_trade_dates(codes, start, end):
+    """区间内这些标的的交易日并集（停牌日不出现，回放时自然跳过）。"""
+    if not codes or not start or not end:
+        return []
+    in_clause = ','.join("'%s'" % c for c in codes)
+    rows = ch_query(
+        "SELECT DISTINCT trade_date FROM %s.daily_prices "
+        "WHERE ts_code IN (%s) AND trade_date > '%s' AND trade_date <= '%s' "
+        "ORDER BY trade_date" % (CH_DB, in_clause, start, end))
+    return [str(r[0]) for r in rows if r and r[0]]
+
+
+def _sim_bt_day_bars(codes, day):
+    """取某交易日所有相关标的的日线 bar（一次查询，避免逐股往返）。"""
+    in_clause = ','.join("'%s'" % c for c in codes)
+    rows = ch_query(
+        "SELECT ts_code,trade_date,open,high,low,close,pre_close,vol FROM %s.daily_prices "
+        "WHERE ts_code IN (%s) AND trade_date = '%s'" % (CH_DB, in_clause, day))
+    bars = {}
+    for r in rows:
+        if not r or len(r) < 6:
+            continue
+        try:
+            bars[str(r[0]).strip().upper()] = {
+                'date': str(r[1]), 'open': float(r[2] or 0), 'high': float(r[3] or 0),
+                'low': float(r[4] or 0), 'close': float(r[5] or 0), 'vol': float(r[7] or 0),
+            }
+        except (TypeError, ValueError):
+            continue
+    return bars
+
+
+def _sim_backtest_replay(codes, start_date, end_date='', max_days=1500):
+    """回测历史回放：从 start_date 次日开始，逐交易日推进委托与卖出条件。
+
+    回测模式的买入按计划日补执行，但条件单引擎只由实盘巡检驱动；
+    不回放就不会有止损/止盈/移动止盈成交，K 线买卖标记与收益指标也就失真。
+    已有净值快照之后的日期才开始推进，重复执行同一计划不会二次触发。
+    """
+    from datetime import datetime, timedelta
+    codes = list(dict.fromkeys([str(c).strip().upper() for c in (codes or []) if c]))
+    if not codes:
+        return {'ok': False, 'reason': '无有效代码', 'days': 0, 'fills': 0, 'conditions': 0}
+    end_date = end_date or datetime.now().strftime('%Y-%m-%d')
+    start_date = start_date or ''
+    last = max([s['trade_date'] for s in _sim_store.list_snapshots()], default='')
+    if last:
+        try:
+            nxt = (datetime.strptime(last, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+        except ValueError:
+            nxt = last
+        if nxt > start_date:
+            start_date = nxt
+    if start_date and start_date >= end_date:
+        return {'ok': True, 'days': 0, 'fills': 0, 'conditions': 0,
+                'reason': '已回放到最新交易日'}
+    dates = _sim_bt_trade_dates(codes, start_date, end_date)[:max_days]
+    cfg = _sim_cfg_read()
+    n_fill = n_cond = 0
+    for d in dates:
+        bars = _sim_bt_day_bars(codes, d)
+        if not bars:
+            continue
+        fills = _sim_broker.retry_pending(d, bars, cfg.get('participation_rate', 0.0),
+                                          cfg.get('slippage_bps', 2.0))
+        n_fill += len(fills or [])
+        for c, b in bars.items():
+            if float(b.get('close') or 0) > 0:
+                _sim_store.mark_last_price(c, b['close'])
+        for c, b in bars.items():
+            n_cond += len(_sim_broker.run_conditions(c, d, b) or [])
+        _write_snapshot(d)
+    return {'ok': True, 'from': start_date, 'to': dates[-1] if dates else start_date,
+            'days': len(dates), 'fills': n_fill + n_cond, 'pending_fills': n_fill,
+            'conditions': n_cond}
+
+
 def _sim_auto_add_conds(code, it, qty, asof):
     """买入成交后建卖出条件组；有 exits 时按 seq 排队，首条生效、其余 queued。"""
     pos = _sim_store.get_position(code)
@@ -4207,6 +4284,7 @@ def _sim_plan_execute(path, asof_override='', mode_override='', source='plan'):
     run_date = now.strftime('%Y-%m-%d')
     base = os.path.basename(path)
     rows, skipped = [], []
+    replay_from = ''
     for b in plan['batches']:
         if not b.get('enabled'):
             skipped.append({'batch': b['id'], 'reason': '该批次 enabled=false'})
@@ -4247,6 +4325,10 @@ def _sim_plan_execute(path, asof_override='', mode_override='', source='plan'):
                 rows.append(x)
                 if x.get('ok'):
                     ok += 1
+                    # 记录最早买入日，之后统一做一次历史回放
+                    if it['side'] == 'buy' and use_asof:
+                        if not replay_from or use_asof < replay_from:
+                            replay_from = use_asof
                 else:
                     fail += 1
         status = 'ok' if fail == 0 else ('partial' if ok else 'failed')
@@ -4255,10 +4337,21 @@ def _sim_plan_execute(path, asof_override='', mode_override='', source='plan'):
         _sim_store.add_auto_log(now.isoformat(timespec='seconds'), 'plan', b['id'], asof,
                                 base, ok + fail, ok, fail,
                                 _sim_json.dumps(rows[-10:], ensure_ascii=False))
+    # 回测：买入是按计划日补的，必须把之后的交易日逐日回放，卖出条件才会撮合
+    replay = None
+    if mode == 'backtest' and replay_from:
+        buy_codes = [it['code'] for b in plan['batches'] if b.get('enabled')
+                     for it in (b.get('items') or []) if it.get('side') == 'buy']
+        replay = _sim_backtest_replay(buy_codes, replay_from)
+        if replay.get('days'):
+            _sim_store.add_auto_log(
+                now.isoformat(timespec='seconds'), 'replay', 'backtest', replay_from,
+                base, replay.get('fills', 0), replay.get('fills', 0), 0,
+                _sim_json.dumps(replay, ensure_ascii=False))
     return {'ok': True, 'mode': mode, 'file': base, 'total': len(rows),
             'success': len([r for r in rows if r.get('ok')]),
             'failed': len(rows) - len([r for r in rows if r.get('ok')]),
-            'results': rows, 'skipped': skipped}
+            'results': rows, 'skipped': skipped, 'replay': replay}
 
 
 def _sim_plan_body(d):
@@ -4576,6 +4669,213 @@ def api_sim_trades():
 @app.route('/api/sim/nav')
 def api_sim_nav():
     return jsonify({'snapshots': _sim_store.list_snapshots()})
+
+
+# ---------------- 回测结果（backtrader / SuperPlot 导出 JSON） ----------------
+BT_DIR = os.environ.get('BT_DIR') or os.path.join(BASE_DIR, 'backtest_results')
+BT_PIN_FILE = os.path.join(BT_DIR, '_pinned.json')
+_BT_META = {}
+_BT_ONE = {'file': '', 'mtime': 0, 'data': None}
+
+
+def _bt_ensure():
+    try:
+        os.makedirs(BT_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+
+def _bt_path(name):
+    """只接受 backtest_results 下的一级 JSON 文件，杜绝路径穿越。"""
+    name = os.path.basename(str(name or '').strip())
+    if not name or name.startswith('_') or not name.lower().endswith('.json'):
+        return ''
+    p = os.path.join(BT_DIR, name)
+    return p if os.path.exists(p) else ''
+
+
+def _bt_meta(p):
+    """读文件头信息（策略名 / 指标 / 区间）。按 mtime+size 缓存，避免每次列表都解析 10MB。"""
+    try:
+        st = os.stat(p)
+        key = (p, int(st.st_mtime), st.st_size)
+        if key in _BT_META:
+            return _BT_META[key]
+        with open(p, 'r', encoding='utf-8') as f:
+            d = json.load(f)
+        s = d.get('strategy_data') or {}
+        ohlcv = ((d.get('ohlcv_data') or {}).get('data')) or []
+        meta = {
+            'file': os.path.basename(p),
+            'strategy': s.get('name') or os.path.basename(p),
+            'timeframe': s.get('timeframe') or '',
+            'description': s.get('description') or '',
+            'code': str(d.get('code') or '').strip().upper(),
+            'source': s.get('filename') or '',
+            'metrics': d.get('metrics_data') or {},
+            'start': (ohlcv[0].get('datetime') or '') if ohlcv else '',
+            'end': (ohlcv[-1].get('datetime') or '') if ohlcv else '',
+            'mtime': int(st.st_mtime),
+            'size': st.st_size,
+        }
+        if len(_BT_META) > 40:
+            _BT_META.clear()
+        _BT_META[key] = meta
+        return meta
+    except Exception as e:
+        return {'file': os.path.basename(p), 'error': '%s: %s' % (type(e).__name__, e)}
+
+
+def _bt_load(p):
+    """按文件名缓存最近一次加载的完整结果（单条 LRU，切回同一文件零等待）。"""
+    st = os.stat(p)
+    if _BT_ONE['file'] == p and _BT_ONE['mtime'] == int(st.st_mtime):
+        return _BT_ONE['data']
+    with open(p, 'r', encoding='utf-8') as f:
+        d = json.load(f)
+    _BT_ONE.update({'file': p, 'mtime': int(st.st_mtime), 'data': d})
+    return d
+
+
+def _bt_down(points, cap=2000):
+    """权益曲线降采样，保留首尾，避免上万点拖慢前端。"""
+    if not points or len(points) <= cap:
+        return points
+    step = (len(points) - 1) / float(cap - 1)
+    out = [points[int(round(i * step))] for i in range(cap - 1)]
+    out.append(points[-1])
+    return out
+
+
+@app.route('/api/bt/list')
+def api_bt_list():
+    _bt_ensure()
+    files = []
+    for fn in sorted(os.listdir(BT_DIR), reverse=True):
+        if not fn.lower().endswith('.json') or fn.startswith('_'):
+            continue
+        meta = _bt_meta(os.path.join(BT_DIR, fn))
+        if meta.get('error'):
+            continue
+        files.append(meta)
+    files.sort(key=lambda x: x.get('mtime') or 0, reverse=True)
+    return jsonify({'dir': BT_DIR, 'files': files})
+
+
+@app.route('/api/bt/detail')
+def api_bt_detail():
+    p = _bt_path(request.args.get('file'))
+    if not p:
+        return jsonify({'ok': False, 'reason': '文件不存在'}), 404
+    try:
+        d = _bt_load(p)
+    except Exception as e:
+        return jsonify({'ok': False, 'reason': '%s: %s' % (type(e).__name__, e)}), 500
+    s = d.get('strategy_data') or {}
+    equity = ((d.get('portfolio_data') or {}).get('data')) or []
+    orders = ((d.get('orders_data') or {}).get('orders')) or []
+    trades = ((d.get('trades_data') or {}).get('trades')) or []
+    analysis = d.get('analysis_data') or {}
+    return jsonify({
+        'ok': True,
+        'file': os.path.basename(p),
+        'strategy': {'name': s.get('name') or '', 'timeframe': s.get('timeframe') or '',
+                     'description': s.get('description') or '', 'code': str(d.get('code') or '').strip().upper()},
+        'metrics': d.get('metrics_data') or {},
+        'analysis': {k: analysis.get(k) for k in ('drawdown', 'sharpe', 'returns', 'sqn', 'tradeanalyzer')},
+        'equity': [{'t': x.get('datetime'), 'v': x.get('value')} for x in _bt_down(equity)],
+        'orders': orders,
+        'trades': trades,
+    })
+
+
+@app.route('/api/bt/marks')
+def api_bt_marks():
+    """把回测成交映射成 K 线买卖点；code 不匹配时返回空，避免串图。"""
+    p = _bt_path(request.args.get('file'))
+    code = str(request.args.get('code') or '').strip().upper()
+    if not p:
+        return jsonify({'marks': []})
+    try:
+        d = _bt_load(p)
+    except Exception:
+        return jsonify({'marks': []})
+    s = d.get('strategy_data') or {}
+    own = str(d.get('code') or '').strip().upper()
+    if not own:
+        for feed in (s.get('data_feeds') or []):
+            mm = re.search(r'(\d{6})', str(feed.get('name') or '') + ' ' + str(feed.get('path') or ''))
+            if mm:
+                own = mm.group(1)
+                break
+    if code:
+        a, b = re.sub(r'\D', '', own), re.sub(r'\D', '', code)
+        if not a or (a and b and a != b):
+            return jsonify({'marks': []})
+    out = []
+    for o in (((d.get('orders_data') or {}).get('orders')) or []):
+        dt = str(o.get('datetime') or '')
+        side = str(o.get('type') or '').lower()
+        if not dt or side not in ('buy', 'sell'):
+            continue
+        try:
+            px = float(o.get('price') or 0)
+            qty = float(o.get('size') or 0)
+        except (TypeError, ValueError):
+            continue
+        if px <= 0:
+            continue
+        out.append({'asof': dt[:10], 'side': side, 'price': round(px, 3),
+                    'qty': round(qty, 2), 'code': own or code})
+    return jsonify({'marks': out})
+
+
+def _bt_pins_read():
+    try:
+        with open(BT_PIN_FILE, 'r', encoding='utf-8') as f:
+            v = json.load(f)
+        return v if isinstance(v, list) else []
+    except Exception:
+        return []
+
+
+def _bt_pins_write(rows):
+    _bt_ensure()
+    with open(BT_PIN_FILE, 'w', encoding='utf-8') as f:
+        json.dump(rows, f, ensure_ascii=False, indent=2)
+
+
+@app.route('/api/bt/pins')
+def api_bt_pins():
+    return jsonify({'pins': _bt_pins_read()})
+
+
+@app.route('/api/bt/pin', methods=['POST'])
+def api_bt_pin():
+    d = request.get_json(force=True, silent=True) or {}
+    p = _bt_path(d.get('file'))
+    if not p:
+        return jsonify({'ok': False, 'reason': '文件不存在'}), 404
+    meta = _bt_meta(p)
+    rows = [x for x in _bt_pins_read() if x.get('file') != meta.get('file')]
+    rows.insert(0, {
+        'file': meta.get('file'), 'strategy': meta.get('strategy'),
+        'timeframe': meta.get('timeframe'), 'code': meta.get('code'),
+        'start': meta.get('start'), 'end': meta.get('end'),
+        'metrics': meta.get('metrics') or {},
+        'pinned_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+    })
+    _bt_pins_write(rows[:200])
+    return jsonify({'ok': True, 'count': len(rows[:200])})
+
+
+@app.route('/api/bt/pin/delete', methods=['POST'])
+def api_bt_pin_delete():
+    d = request.get_json(force=True, silent=True) or {}
+    f = os.path.basename(str(d.get('file') or ''))
+    rows = [x for x in _bt_pins_read() if x.get('file') != f]
+    _bt_pins_write(rows)
+    return jsonify({'ok': True, 'count': len(rows)})
 
 
 @app.route('/api/sim/reset', methods=['POST'])

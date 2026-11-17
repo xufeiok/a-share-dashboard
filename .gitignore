@@ -30,3 +30,7 @@ _bt_src/
 # ---- 系统 ----
 .DS_Store
 Thumbs.db
+
+# ---- 回测结果（单文件数 MB，不入库；仅保留 README 与目录）----
+backtest_results/*.json
+
