@@ -12,7 +12,7 @@ import math
 import requests
 import akshare as ak
 import pandas
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import socket
@@ -47,6 +47,20 @@ except Exception as _e:
 
 app = Flask(__name__)
 CORS(app)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+@app.route('/')
+@app.route('/index.html')
+def _serve_index():
+    """由后端直接托管前端，远程访问只需一个地址（配合 Cloudflare Tunnel 等）。"""
+    return send_from_directory(BASE_DIR, 'index.html')
+
+
+@app.route('/vendor/<path:sub>')
+def _serve_vendor(sub):
+    return send_from_directory(os.path.join(BASE_DIR, 'vendor'), sub)
 
 
 @app.errorhandler(Exception)

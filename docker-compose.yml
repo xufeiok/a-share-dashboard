@@ -1,0 +1,36 @@
+services:
+  akanban:
+    build: .
+    image: akanban:latest
+    container_name: akanban
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      TZ: Asia/Shanghai
+      CH_URL: ${CH_URL:-http://192.168.10.102:18123/}
+      CH_USER: ${CH_USER:-default}
+      CH_PASSWORD: ${CH_PASSWORD:-}
+      CH_DB: ${CH_DB:-quant_db}
+      TUSHARE_TOKEN: ${TUSHARE_TOKEN:-}
+    volumes:
+      # 挂载整个项目目录：SQLite 账本持久化，改代码后 restart 即生效
+      - ./:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # 可选：Cloudflare Tunnel（固定域名外网访问）
+  # 在 .env 里配置 TUNNEL_TOKEN 后取消下面的注释
+  # tunnel:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: akanban-tunnel
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+  #   depends_on:
+  #     - akanban

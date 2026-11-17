@@ -8,7 +8,8 @@
 /* API 基地址：优先 ?api= 参数，其次本地记住的地址，最后本机默认。
    例：index.html?api=https://your-tunnel.trycloudflare.com */
 (function(){
-  var DEF = 'http://127.0.0.1:5000/api';
+  var isHttp = location.protocol === 'http:' || location.protocol === 'https:';
+  var DEF = isHttp ? (location.origin + '/api') : 'http://127.0.0.1:5000/api';
   var base = null, q = null;
   try { q = new URLSearchParams(location.search).get('api'); } catch(e) {}
   if (q) {
@@ -2439,7 +2440,7 @@ body { display: flex; flex-direction: column; }
             <div class="macro-tag-item"><span class="tag-label">国内流动性</span><span class="tag-badge neutral" id="macroDomLiq">中性</span></div>
             <div class="macro-tag-item"><span class="tag-label">基本面</span><span class="tag-badge neutral" id="macroDomFund">中性</span></div>
           </div>
-          <div class="macro-key-indicators" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:10px;margin-top:12px;flex:1 1 100%;width:100%">
+          <div class="macro-key-indicators" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:10px;margin-top:12px;flex:1 1 100%;width:100%">
             <div class="macro-global-card">
               <div class="mgc-name">10Y美债<span style="opacity:.55;font-size:9px"> 名义</span></div>
               <div class="mgc-price" id="kiTreasury10y">--</div>
@@ -2447,18 +2448,18 @@ body { display: flex; flex-direction: column; }
               <div style="font-size:10px;color:var(--text-secondary);opacity:0.7;margin-top:4px" id="kiTreasury10yPct"></div>
               <div style="font-size:10px;color:var(--text-secondary);opacity:0.5" id="kiTreasury10yDate"></div>
             </div>
-            <div class="macro-global-card">
+            <div class="macro-global-card" id="cardReal10y" style="display:none">
               <div class="mgc-name">10Y实际<span style="opacity:.55;font-size:9px"> TIPS</span></div>
               <div class="mgc-price" id="kiReal10y">--</div>
               <div class="mgc-change" id="kiReal10yChange"></div>
-              <div style="font-size:10px;color:var(--text-secondary);opacity:0.7;margin-top:4px">TIPS · 需外网</div>
+              <div style="font-size:10px;color:var(--text-secondary);opacity:0.7;margin-top:4px">剔除通胀</div>
               <div style="font-size:10px;color:var(--text-secondary);opacity:0.5" id="kiReal10yDate"></div>
             </div>
-            <div class="macro-global-card">
+            <div class="macro-global-card" id="cardBreakeven" style="display:none">
               <div class="mgc-name">10Y盈亏平衡<span style="opacity:.55;font-size:9px"> 通胀</span></div>
               <div class="mgc-price" id="kiBreakeven">--</div>
               <div class="mgc-change" id="kiBreakevenChange"></div>
-              <div style="font-size:10px;color:var(--text-secondary);opacity:0.7;margin-top:4px">名义−实际 · 需外网</div>
+              <div style="font-size:10px;color:var(--text-secondary);opacity:0.7;margin-top:4px">名义−实际</div>
               <div style="font-size:10px;color:var(--text-secondary);opacity:0.5" id="kiBreakevenDate"></div>
             </div>
             <div class="macro-global-card">
@@ -6280,6 +6281,11 @@ const App = {
       setCard('kiTreasury10y', 'kiTreasury10yChange', 'kiTreasury10yDate', d.treasury10y, changes.treasury10y, '%', dates.treasury10y, true, 'kiTreasury10yPct', pcts.treasury10y);
       setCard('kiReal10y', 'kiReal10yChange', 'kiReal10yDate', d.real10y, changes.real10y, '%', dates.real10y, true);
       setCard('kiBreakeven', 'kiBreakevenChange', 'kiBreakevenDate', d.breakeven10y, changes.breakeven10y, '%', dates.breakeven10y, false);
+      // 取不到实际收益率时隐藏这两张卡，避免出现空卡
+      [['cardReal10y', d.real10y], ['cardBreakeven', d.breakeven10y]].forEach(function(pair){
+        var el = document.getElementById(pair[0]);
+        if (el) el.style.display = (pair[1] === null || pair[1] === undefined || pair[1] === '') ? 'none' : '';
+      });
       setCard('kiSpread', 'kiSpreadChange', 'kiSpreadDate', d.treasury2s10s, null, '%', dates.treasury10y, false);
       setCard('kiCn10y', 'kiCn10yChange', 'kiCn10yDate', d.cn10y, changes.cn10y, '%', dates.cn10y, true, 'kiCn10yPct', pcts.cn10y);
       setCard('kiShibor', 'kiShiborChange', 'kiShiborDate', d.shibor1w, changes.shibor1w, '%', dates.shibor1w, true);
@@ -6481,22 +6487,31 @@ const App = {
       const realMap = {}, beMap = {};
       (data.us_real || []).forEach(function(d){ realMap[dkey(d.date)] = d.real; });
       (data.us_breakeven || []).forEach(function(d){ beMap[dkey(d.date)] = d.be; });
+      const hasReal = (data.us_real || []).length > 0;
+      const hasBe = (data.us_breakeven || []).length > 0;
+      const legendItems = ['美债10Y名义'];
+      if (hasReal) legendItems.push('美债10Y实际(TIPS)');
+      if (hasBe) legendItems.push('盈亏平衡通胀');
+      legendItems.push('美债2Y', '中国10Y国债', '中国1Y国债');
+      const seriesOpt = [
+        { name: '美债10Y名义', type: 'line', data: usData.map(function(d){return d.yield;}), smooth: true, lineStyle: { width: 2, color: '#f23645' },
+          markLine: { data: [{ yAxis: 4.5, lineStyle: { color: '#f23645', type: 'dashed', width: 2 }, label: { formatter: '高压预警 4.5%', color: '#f23645', fontSize: 11, fontWeight: 'bold' } }] } }
+      ];
+      if (hasReal) seriesOpt.push({ name: '美债10Y实际(TIPS)', type: 'line', data: allDates.map(function(d){ var v = realMap[dkey(d)]; return v === undefined ? null : v; }), smooth: true, lineStyle: { width: 2, color: '#00c853' } });
+      if (hasBe) seriesOpt.push({ name: '盈亏平衡通胀', type: 'line', data: allDates.map(function(d){ var v = beMap[dkey(d)]; return v === undefined ? null : v; }), smooth: true, lineStyle: { width: 1.5, color: '#b2b5be', type: 'dashed' } });
+      seriesOpt.push(
+        { name: '美债2Y', type: 'line', data: usData.map(function(d){return d.y2;}), smooth: true, lineStyle: { width: 1.5, color: '#ff7043' } },
+        { name: '中国10Y国债', type: 'line', data: cnData.map(function(d){return d.y10;}), smooth: true, lineStyle: { width: 2, color: '#2962ff' } },
+        { name: '中国1Y国债', type: 'line', data: cnData.map(function(d){return d.y1;}), smooth: true, lineStyle: { width: 1.5, color: '#f0b90b' } }
+      );
       chart.setOption({
         backgroundColor: 'transparent',
         tooltip: { trigger: 'axis' },
-        legend: { data: ['美债10Y名义','美债10Y实际(TIPS)','盈亏平衡通胀','美债2Y','中国10Y国债','中国1Y国债'], textStyle: { color: '#b2b5be' } },
+        legend: { data: legendItems, textStyle: { color: '#b2b5be' } },
         grid: { left: 50, right: 50, top: 35, bottom: 30 },
         xAxis: { type: 'category', data: allDates, axisLine: { lineStyle: { color: '#363a45' } } },
         yAxis: { type: 'value', name: '收益率(%)', splitLine: { lineStyle: { color: '#2a2e39' } } },
-        series: [
-          { name: '美债10Y名义', type: 'line', data: usData.map(function(d){return d.yield;}), smooth: true, lineStyle: { width: 2, color: '#f23645' },
-            markLine: { data: [{ yAxis: 4.5, lineStyle: { color: '#f23645', type: 'dashed', width: 2 }, label: { formatter: '高压预警 4.5%', color: '#f23645', fontSize: 11, fontWeight: 'bold' } }] } },
-          { name: '美债10Y实际(TIPS)', type: 'line', data: allDates.map(function(d){ var v = realMap[dkey(d)]; return v === undefined ? null : v; }), smooth: true, lineStyle: { width: 2, color: '#00c853' } },
-          { name: '盈亏平衡通胀', type: 'line', data: allDates.map(function(d){ var v = beMap[dkey(d)]; return v === undefined ? null : v; }), smooth: true, lineStyle: { width: 1.5, color: '#b2b5be', type: 'dashed' } },
-          { name: '美债2Y', type: 'line', data: usData.map(function(d){return d.y2;}), smooth: true, lineStyle: { width: 1.5, color: '#ff7043' } },
-          { name: '中国10Y国债', type: 'line', data: cnData.map(function(d){return d.y10;}), smooth: true, lineStyle: { width: 2, color: '#2962ff' } },
-          { name: '中国1Y国债', type: 'line', data: cnData.map(function(d){return d.y1;}), smooth: true, lineStyle: { width: 1.5, color: '#f0b90b' } }
-        ]
+        series: seriesOpt
       });
       window.addEventListener('resize', function(){ chart.resize(); });
 
