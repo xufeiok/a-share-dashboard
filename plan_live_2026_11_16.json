@@ -1,0 +1,151 @@
+{
+  "version": "1.1",
+  "timezone": "Asia/Shanghai",
+  "mode": "live",
+  "name": "11-16 实盘建仓 10 只（5%止损 + 两段移动止盈 + 时间兜底）",
+  "defaults": {
+    "price": { "type": "market" },
+    "qty": { "type": "shares", "value": 100 },
+    "exit_qty": { "type": "pct", "value": 1.0 }
+  },
+  "batches": [
+    {
+      "id": "live_build_2026_11_16",
+      "name": "今日建仓 10 只，各 100 股",
+      "enabled": true,
+      "schedule": { "type": "once", "date": "2026-11-16", "time": "09:31" },
+      "items": [
+        {
+          "code": "003011.SZ",
+          "name": "海象新材",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "600768.SH",
+          "name": "富邦新材",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "601939.SH",
+          "name": "建设银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "601398.SH",
+          "name": "工商银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "603102.SH",
+          "name": "百合股份",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "600149.SH",
+          "name": "廊坊发展",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "601988.SH",
+          "name": "中国银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "601288.SH",
+          "name": "农业银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "603326.SH",
+          "name": "我乐家居",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "002736.SZ",
+          "name": "国信证券",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.50 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-23", "qty": { "type": "all" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

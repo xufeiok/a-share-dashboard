@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "timezone": "Asia/Shanghai",
+  "market": "CN",
+  "name": "十一月第一批选股与卖出条件",
+  "generated_at": "2026-11-15 03:20:00",
+  "source": "Qlib 多因子选股 v3.2",
+
+  "defaults": {
+    "price": { "type": "market" },
+    "qty": { "type": "shares", "value": 100 },
+    "exit_qty": { "type": "pct", "value": 1.0 }
+  },
+
+  "batches": [
+    {
+      "id": "2026_11_17_open",
+      "name": "2026-11-17 周一开盘建仓",
+      "enabled": true,
+      "schedule": {
+        "type": "once",
+        "date": "2026-11-17",
+        "time": "09:31"
+      },
+      "items": [
+        {
+          "code": "600519.SH",
+          "name": "贵州茅台",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "tp", "value": 0.08, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.05, "qty": { "type": "pct", "value": 0.5 } }
+          ]
+        },
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "buy",
+          "qty": { "type": "amount", "value": 6000 },
+          "price": { "type": "pct_of_ref", "value": 0.002 },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.03, "qty": { "type": "pct", "value": 0.4 } },
+            { "seq": 2, "kind": "tp", "value": 0.06, "qty": { "type": "pct", "value": 0.3 } },
+            { "seq": 3, "kind": "trail", "value": 0.02, "arm": 0.04, "qty": { "type": "pct", "value": 1.0 } },
+            { "seq": 4, "kind": "timed", "due": "2026-12-31", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "000002.SZ",
+          "name": "万科A",
+          "side": "buy",
+          "qty": { "type": "pct_nav", "value": 0.015 },
+          "price": { "type": "close" },
+          "exits": [
+            { "seq": 1, "kind": "fixed_price", "value": 4.20, "qty": { "type": "shares", "value": 100 } },
+            { "seq": 2, "kind": "trail", "value": 0.02, "arm": 0.03, "qty": { "type": "pct", "value": 1.0 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2026_11_rebalance",
+      "name": "每月第一个周一调仓（减仓平安银行 30%）",
+      "enabled": true,
+      "schedule": {
+        "type": "monthly_nth_weekday",
+        "nth": 1,
+        "weekday": 1,
+        "time": "10:00",
+        "date_from": "2026-11-01",
+        "date_to": "2027-06-30"
+      },
+      "items": [
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "sell",
+          "qty": { "type": "pct", "value": 0.3 },
+          "price": { "type": "market" },
+          "exits": []
+        }
+      ]
+    }
+  ]
+}

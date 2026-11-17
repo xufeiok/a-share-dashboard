@@ -1,0 +1,7 @@
+{
+  "ch_url": "http://127.0.0.1:8123/",
+  "ch_user": "default",
+  "ch_password": "",
+  "ch_db": "quant_db",
+  "tushare_token": ""
+}

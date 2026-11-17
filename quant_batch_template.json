@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "timezone": "Asia/Shanghai",
+  "market": "CN",
+  "__doc__": "量化批次计划模板：batches 可多个；每个 batch 一个触发时间规则；items 内每只股票各自带 exits（卖出条件组，按 seq 顺序执行，qty 控制每次卖多少仓位）",
+
+  "defaults": {
+    "price": { "type": "market" },
+    "qty": { "type": "shares", "value": 100 },
+    "exit_qty": { "type": "pct", "value": 1.0 },
+    "__doc__": "item 未写 price/qty 时的兜底；exit 未写 qty 时默认卖出当前全部持仓"
+  },
+
+  "batches": [
+    {
+      "id": "b1_once",
+      "name": "一次性建仓（指定日期时间）",
+      "enabled": true,
+      "schedule": {
+        "type": "once",
+        "date": "2026-11-16",
+        "time": "09:31",
+        "__doc__": "type=once：只在 date 当天 time 之后触发一次"
+      },
+      "items": [
+        {
+          "code": "600519.SH",
+          "name": "贵州茅台",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            {
+              "seq": 1,
+              "kind": "tp",
+              "value": 0.08,
+              "qty": { "type": "pct", "value": 0.5 },
+              "__doc__": "固定收益率止盈：涨 8% 卖 50% 当前持仓"
+            },
+            {
+              "seq": 2,
+              "kind": "trail",
+              "value": 0.03,
+              "arm": 0.05,
+              "qty": { "type": "pct", "value": 0.5 },
+              "__doc__": "移动止盈：先涨到 5% 才激活，之后自持仓期最高价回落 3% 卖出剩余 50%"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "b2_monthly",
+      "name": "每月第一个周一定投",
+      "enabled": true,
+      "schedule": {
+        "type": "monthly_nth_weekday",
+        "nth": 1,
+        "weekday": 1,
+        "time": "09:35",
+        "date_from": "2026-11-01",
+        "date_to": "2027-12-31",
+        "__doc__": "type=monthly_nth_weekday：每月第 nth 个周 weekday（1=周一）的 time 之后触发；date_to 到期自动停"
+      },
+      "items": [
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "buy",
+          "qty": { "type": "amount", "value": 6000 },
+          "price": { "type": "pct_of_ref", "value": 0.002 },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.03, "qty": { "type": "pct", "value": 0.4 } },
+            { "seq": 2, "kind": "tp", "value": 0.06, "qty": { "type": "pct", "value": 0.3 } },
+            { "seq": 3, "kind": "timed", "due": "2027-01-31", "qty": { "type": "pct", "value": 1.0 },
+              "__doc__": "定时卖出：到期日（含）之后第一个交易日，卖出当前剩余全部仓位" }
+          ]
+        },
+        {
+          "code": "000002.SZ",
+          "name": "万科A",
+          "side": "buy",
+          "qty": { "type": "pct_nav", "value": 0.02 },
+          "price": { "type": "close" },
+          "exits": [
+            { "seq": 1, "kind": "fixed_price", "value": 4.20, "qty": { "type": "shares", "value": 100 } },
+            { "seq": 2, "kind": "trail", "value": 0.02, "arm": 0.03, "qty": { "type": "pct", "value": 1.0 } }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "b3_daily_sell",
+      "name": "每交易日尾盘清仓某标的",
+      "enabled": false,
+      "schedule": {
+        "type": "daily",
+        "weekdays": [1, 2, 3, 4, 5],
+        "time": "14:50",
+        "__doc__": "type=daily：weekdays 内每天 time 之后触发一次（当天只触发一次）"
+      },
+      "items": [
+        {
+          "code": "000002.SZ",
+          "side": "sell",
+          "qty": { "type": "all" },
+          "price": { "type": "market" },
+          "exits": []
+        }
+      ]
+    }
+  ]
+}

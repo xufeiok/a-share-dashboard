@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "timezone": "Asia/Shanghai",
+  "mode": "backtest",
+  "name": "多股票多条件回测验证",
+  "defaults": {
+    "price": { "type": "market" },
+    "qty": { "type": "shares", "value": 100 },
+    "exit_qty": { "type": "pct", "value": 1.0 }
+  },
+  "batches": [
+    {
+      "id": "bt_multi_2026_11_10",
+      "name": "11-10 建仓 4 只（回测补执行）",
+      "enabled": true,
+      "schedule": { "type": "once", "date": "2026-11-10", "time": "09:31" },
+      "items": [
+        {
+          "code": "600519.SH",
+          "name": "贵州茅台",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "tp", "value": 0.05, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.04, "qty": { "type": "pct", "value": 1.0 } },
+            { "seq": 3, "kind": "timed", "due": "2026-11-13", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 1000 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "fixed_price", "value": 16.5, "qty": { "type": "pct", "value": 0.6 } },
+            { "seq": 2, "kind": "timed", "due": "2026-11-16", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "600036.SH",
+          "name": "招商银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 500 },
+          "price": { "type": "close" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.03, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 2, "kind": "trail", "value": 0.025, "arm": 0, "qty": { "type": "pct", "value": 1.0 } }
+          ]
+        },
+        {
+          "code": "000002.SZ",
+          "name": "万科A",
+          "side": "buy",
+          "qty": { "type": "pct_nav", "value": 0.05 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "timed", "due": "2026-11-12", "qty": { "type": "all" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

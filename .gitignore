@@ -1,0 +1,30 @@
+# ---- 本地私密配置（务必不要提交）----
+config_local.json
+.env
+
+# ---- 本地数据与账本 ----
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+trade_inbox/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- 日志与临时产物 ----
+*.log
+server_err.txt
+server_log.txt
+_api2out.txt
+_srverr.txt
+_srvout.txt
+_bt_src/
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db

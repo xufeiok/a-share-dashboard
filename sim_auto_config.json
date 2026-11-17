@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "watch_dir": "E:\\Quant\\A股看板系统\\A股看板系统\\trade_inbox",
+  "interval_min": 5,
+  "auto_cond": true,
+  "default_qty": 100
+}
