@@ -1,7 +1,7 @@
 @echo off
 title AStock Data API Server
 
-set PYTHON=E:\Conda_env\Qlib_env\python.exe
+if not defined PYTHON set PYTHON=E:\Conda_env\Qlib_env\python.exe
 set SERVER=%~dp0server.py
 
 echo ========================================
