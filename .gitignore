@@ -1,6 +1,8 @@
 # ---- 本地私密配置（务必不要提交）----
 config_local.json
 .env
+# 含本机绝对路径的运行时配置（各机器不同，不入库；sim_config.json 为通用撮合参数可入库）
+sim_auto_config.json
 
 # ---- 本地数据与账本 ----
 *.db

@@ -129,5 +129,18 @@ stock_indicators.py        技术指标
 bt_indicator_bridge.py     Backtrader 指标桥
 indicators/                指标实现
 vendor/                    ECharts / KLineCharts 本地库
-plan_*.json                批次计划示例
+plans/                     批次买卖计划（JSON）
+  ├── live/                实盘计划（写入 sim_trading_live.db）
+  ├── backtest/            回测计划（写入 sim_trading.db）
+  └── templates/           结构模板与完整示例
+trade_inbox/               定时实盘收件箱（运行时生成，不入库）
+Dockerfile / docker-compose.yml / DEPLOY_FNOS.md   飞牛OS 部署
 ```
+
+## 批次计划怎么放
+
+- 实盘：`plans/live/plan_live_YYYYMMDD_名称.json`
+- 回测：`plans/backtest/plan_bt_YYYYMMDD_名称.json`
+- 先复制 `plans/templates/quant_batch_template.json` 改，字段说明见 `plans/README.md`
+
+前端「交易持仓」页选择模式后填写**相对项目根的路径**，两种模式各记各的账、各画各的买卖标记，互不干扰。
