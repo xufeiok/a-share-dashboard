@@ -4902,7 +4902,12 @@ def api_sim_nav():
 
 
 # ---------------- 回测结果（backtrader / SuperPlot 导出 JSON） ----------------
-BT_DIR = os.environ.get('BT_DIR') or os.path.join(BASE_DIR, 'backtest_results')
+# 统一放在 plans/backtest_results/，与 plans/live/ 同级；旧版根目录 backtest_results/ 仍兼容
+_BT_DEFAULT = os.path.join(BASE_DIR, 'plans', 'backtest_results')
+_BT_LEGACY = os.path.join(BASE_DIR, 'backtest_results')
+BT_DIR = os.environ.get('BT_DIR') or (
+    _BT_DEFAULT if (os.path.isdir(_BT_DEFAULT) or not os.path.isdir(_BT_LEGACY)) else _BT_LEGACY
+)
 BT_PIN_FILE = os.path.join(BT_DIR, '_pinned.json')
 _BT_META = {}
 _BT_ONE = {'file': '', 'mtime': 0, 'data': None}

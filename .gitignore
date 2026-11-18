@@ -34,6 +34,8 @@ _bt_src/
 .DS_Store
 Thumbs.db
 
-# ---- 回测结果（单文件数 MB，不入库；仅保留 README 与目录）----
-backtest_results/*.json
+# ---- 回测结果（单文件数 MB，不入库；仅保留 README、模板与目录）----
+plans/backtest_results/*.json
+!plans/backtest_results/_template_backtest.json
+!plans/backtest_results/template_backtest.json
 

@@ -2,7 +2,7 @@
 
 只负责结构与时间：不取行情、不下单、不动数据库，便于单测与复用。
 
-计划结构见 plans/templates/quant_batch_template.json：
+计划结构见 plans/live/_template_live.json：
     plan.batches[] -> batch.schedule / batch.items[] -> item.exits[]
 """
 import json

@@ -727,13 +727,28 @@
   async function fetchBars(p) {
     const token = ++S.loadToken;
     const freq = periodToFreq(p.period);
-    const endDate = S.endDate || '';
+    const code = p.symbol.ticker;
+    const btMode = (S.mode === 'plan_bt');
+    let endDate = S.endDate || '';
+    /* 回测模式：默认截止到最后成交日附近（而不是今天），
+       否则更早年份的买卖点会落在可视区左侧，画不出来也看不到 */
+    if (!endDate && btMode && freq === 'daily') {
+      try {
+        const bts = (await btMarkTrades()) || [];
+        const mine = bts.filter(t => t.code === code);
+        if (mine.length) {
+          const last = mine.map(t => String(t.asof)).sort().pop();
+          const d = new Date(last + 'T00:00:00');
+          d.setDate(d.getDate() + 12);
+          endDate = ymd(d.getTime());
+        }
+      } catch (e) { }
+    }
     // days 是"根数"语义（后端再 +100 作为取数行数）：截止态让三种周期都覆盖约 2.8 年，
     // 避免 weekly 传 600 变成 3000 根日线聚合出 650 周的情况
     const days = endDate
       ? (freq === 'daily' ? 600 : (freq === 'weekly' ? 120 : 30))
-      : (freq === 'daily' ? 250 : 120);
-    const code = p.symbol.ticker;
+      : (freq === 'daily' ? (btMode ? 600 : 250) : 120);
     // 截止日交给后端在聚合前切片：周/月线最后一根才是真正只到该日的部分周期
     const endQs = endDate ? `&end=${encodeURIComponent(endDate)}` : '';
     // K 线先单独取：不能等慢速的 indicators，避免图表长时间空白
@@ -1888,6 +1903,8 @@ function addToFavs(codes) {
 function switchMode(mode) {
   S.mode = mode;
   S.sim.trades = [];
+  /* 回测模式可能为了装下买卖点把 barSpace 缩小；离开时恢复默认密度 */
+  if (mode !== 'plan_bt' && S.chart) { try { S.chart.setBarSpace(8); } catch (e) { } }
   document.querySelectorAll('.s-tab').forEach(x => x.classList.toggle('active', x.dataset.m === mode));
   const sb = $('skSidebar');
   if (sb && sb.style.display === 'none') sb.style.display = 'flex';
@@ -1899,9 +1916,30 @@ function switchMode(mode) {
   /* 交易页当前选中的回测结果文件；个股页「回测」列表与 K 线买卖标记都跟着它走 */
   function btFile() { try { return localStorage.getItem('ak_bt_file') || ''; } catch (e) { return ''; } }
 
+  /* 当前文件可能已被删除/改名（如旧的 _template_*.json）：
+     每 30s 拉一次 /bt/list，若 localStorage 里的文件名已失效，自动回退到列表第一个，避免列表与标记同时空掉 */
+  async function ensureBtFile() {
+    const cur = btFile();
+    const now = Date.now();
+    if (!S.btList || (now - (S.btListAt || 0)) > 30000) {
+      try {
+        const r = await (await fetch(`${API}/bt/list`)).json();
+        S.btList = (r.files || []).map(f => f.file);
+        S.btListAt = now;
+      } catch (e) { S.btList = S.btList || []; }
+    }
+    const list = S.btList || [];
+    if (!list.length) return '';
+    if (cur && list.indexOf(cur) >= 0) return cur;
+    const first = list[0];
+    try { localStorage.setItem('ak_bt_file', first); } catch (e) { }
+    S.btMarks = null;
+    return first;
+  }
+
   /* 回测结果文件的全部买卖点（按文件缓存，切文件时才重拉，避免每 4s 轮询重复请求） */
   async function btMarkTrades() {
-    const file = btFile();
+    const file = await ensureBtFile();
     if (!file) return null;
     if (S.btMarks && S.btMarks.file === file) return S.btMarks.trades;
     try {
@@ -1917,7 +1955,7 @@ function switchMode(mode) {
       if (!el) return;
       if (S.mode === 'plan_bt' || S.mode === 'plan_live') {
         // 回测：列表 = 交易页当前选中的回测结果文件涉及的股票（切文件即换股）
-        const selFile = S.mode === 'plan_bt' ? btFile() : '';
+        const selFile = S.mode === 'plan_bt' ? await ensureBtFile() : '';
         if (selFile) {
           let items = [];
           try {
@@ -3501,6 +3539,16 @@ function switchMode(mode) {
         if (bd && bd.width > 0 && bd.height > 0) { plotW = bd.width; plotH = bd.height; }
       } catch (e) { /* 忽略 */ }
       const tr = ((S.sim && S.sim.trades) || []).filter(t => t.code === S.code).slice(-60);
+      try {
+        window.__skDiag = {
+          mode: S.mode, code: S.code, total: ((S.sim && S.sim.trades) || []).length,
+          codes: Array.from(new Set(((S.sim && S.sim.trades) || []).map(x => x && x.code))),
+          bar0: barsTs.length ? barsTs[0] : 0, barN: barsTs.length ? barsTs[barsTs.length - 1] : 0,
+          matched: tr.length, convFail: 0, oob: 0, early: 0, plotW: plotW, plotH: plotH
+        };
+      } catch (e) { }
+      const dg = (window.__skDiag || {});
+      let earlyCnt = 0;   // 成交日早于当前可视区间最早一根 K 线，无法定位
       const drawn = [];
       const usedPos = {};   // 同一根 K 线同一价位的成交（不同实盘/多笔）标签错位，避免互相盖住
       tr.forEach(t => {
@@ -3511,14 +3559,14 @@ function switchMode(mode) {
         if (barsTs.length && barsTs.indexOf(ts) < 0) {
           let best = null;
           for (let i = 0; i < barsTs.length; i++) { if (barsTs[i] <= t0) best = barsTs[i]; }
-          if (best == null) return;
+          if (best == null) { earlyCnt++; dg.early++; return; }
           ts = best;
         }
         let pt = null;
         try { pt = S.chart.convertToPixel({ timestamp: ts, value: Number(t.price) }); } catch (e) { pt = null; }
-        if (!pt || !isFinite(pt.x) || !isFinite(pt.y)) return;
+        if (!pt || !isFinite(pt.x) || !isFinite(pt.y)) { dg.convFail++; return; }
         /* 缩放/拖动后成交可能落在可视区间之外：不画，否则会飘在图表外看着像错乱 */
-        if (pt.x < -4 || pt.x > plotW + 4 || pt.y < 0 || pt.y > plotH) return;
+        if (pt.x < -4 || pt.x > plotW + 4 || pt.y < 0 || pt.y > plotH) { dg.oob++; return; }
         const buy = t.side === 'buy';
         const color = buy ? '#f23645' : '#4a9eff';
         const dot = document.createElement('div');
@@ -3555,7 +3603,37 @@ function switchMode(mode) {
       tip.textContent = drawn.length
         ? ('模拟成交：' + drawn.map(d => (d.t.asof || '').slice(5) + ' ' + (d.t.side === 'buy' ? '买' : '卖') +
             (d.t.qty || '') + '@' + d.t.price).join(' · '))
-        : '';
+        : (earlyCnt
+          ? ('有 ' + earlyCnt + ' 笔成交早于当前K线区间（' + (barsTs.length ? ymd(barsTs[0]) : '—') +
+             ' 起），切到更长周期或调整截止日查看')
+          : (dg.oob
+            ? ('有 ' + dg.oob + ' 笔成交在当前可视区外，拖动/缩放查看')
+            : ''));
+      /* 回测模式：买卖点跨度可能大于当前缩放窗口（如买在年初、卖在年中），
+         首次进入该 (文件+标的+成交区间) 时按跨度自动缩放并滚动，保证首末成交同时在图内；
+         之后用户手动缩放/拖动不会被覆盖 */
+      if (S.mode === 'plan_bt' && tr.length && dg.oob > 0 && barsTs.length > 10) {
+        const key = btFile() + '|' + S.code + '|' + tr[0].asof + '|' + tr[tr.length - 1].asof;
+        if (S.btFitKey !== key) {
+          S.btFitKey = key;
+          const firstT = new Date(tr[0].asof + 'T00:00:00').getTime();
+          const lastT = new Date(tr[tr.length - 1].asof + 'T00:00:00').getTime();
+          let fi = -1, li = -1;
+          for (let i = 0; i < barsTs.length; i++) {
+            if (fi < 0 && barsTs[i] >= firstT) fi = i;
+            if (barsTs[i] <= lastT) li = i;
+          }
+          if (fi < 0) fi = 0;
+          if (li < fi) li = barsTs.length - 1;
+          const span = li - fi + 1;
+          const want = Math.max(1.6, Math.min(8, plotW / (span + 12)));
+          try {
+            S.chart.setBarSpace(want);
+            S.chart.scrollToDataIndex(li + 4, 0);
+          } catch (e) { }
+          setTimeout(() => { try { drawSimMarks(); } catch (e) { } }, 200);
+        }
+      }
     } catch (e) { }
   }
 

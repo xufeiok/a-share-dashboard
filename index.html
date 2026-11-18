@@ -2317,7 +2317,7 @@ body { display: flex; flex-direction: column; }
       <!-- 回测账户模块：只读回测结果 JSON（backtrader / SuperPlot 导出） -->
       <div class="trd-acct-panel" id="trdPanel_bt">
         <div class="trd-card">
-          <div class="trd-card-h"><span>回测结果文件</span><span class="trd-sub" id="btDirTip">扫描 backtest_results/</span></div>
+          <div class="trd-card-h"><span>回测结果文件</span><span class="trd-sub" id="btDirTip">扫描 plans/backtest_results/</span></div>
           <div class="trd-body">
             <div class="trd-row">
               <select id="btFileSel" class="trd-in" style="flex:1"><option value="">加载中…</option></select>
@@ -4557,7 +4557,7 @@ const App = {
       : '目录 ' + (r.dir || '') + ' · 暂无结果文件';
     if (!r.files.length) {
       const metaEl = document.getElementById('btFileMeta');
-      if (metaEl) metaEl.textContent = '把 backtrader 导出的回测 JSON 放进 backtest_results/，刷新后自动出现在下拉列表。';
+      if (metaEl) metaEl.textContent = '把 backtrader 导出的回测 JSON 放进 plans/backtest_results/，刷新后自动出现在下拉列表。';
       ['btKpis', 'btTrades'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
       this.loadBtPins();
       return;

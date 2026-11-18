@@ -1,0 +1,582 @@
+{
+  "_readme": "A股看板·回测模式唯一输入格式（多股票版）。放入 plans/backtest_results/ 后，前端「回测」下拉即可选择。要点：1) orders 每笔必须带 code（6位+.SH/.SZ），K线买卖点按 code 过滤，否则多股票会串图；2) 成交价必须是成交当日真实价格（落在当日 high/low 之间），否则 K 线标记会悬空；3) ohlcv_data.data 用基准标的月线，仅用于区间展示；4) metrics_data / analysis_data 为汇总指标；5) 文件名不要以 _ 开头（_ 前缀为系统内部文件，不进列表）。",
+  "schema_version": "2.0",
+  "kind": "backtest_result",
+  "strategy_data": {
+    "name": "多股票趋势跟随策略（示例模板）",
+    "timeframe": "daily",
+    "description": "示例：3 只标的、单标的独立信号、固定 5% 止损 + 10% 移动止盈，用于演示多股票回测结果格式。",
+    "filename": "strategies/multi_stock_trend.py",
+    "code": "",
+    "chart_config": {},
+    "data_feeds": [
+      {
+        "name": "600519.SH 贵州茅台 日线",
+        "path": "mydata/600519.SH_daily.csv"
+      },
+      {
+        "name": "000001.SZ 平安银行 日线",
+        "path": "mydata/000001.SZ_daily.csv"
+      },
+      {
+        "name": "601318.SH 中国平安 日线",
+        "path": "mydata/601318.SH_daily.csv"
+      }
+    ]
+  },
+  "ohlcv_data": {
+    "data": [
+      {
+        "datetime": "2025-01-27T00:00:00",
+        "open": 1469.69,
+        "high": 1470.16,
+        "low": 1371.33,
+        "close": 1383.85,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-02-28T00:00:00",
+        "open": 1388.68,
+        "high": 1473.91,
+        "low": 1350.12,
+        "close": 1447.31,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-03-31T00:00:00",
+        "open": 1449.05,
+        "high": 1598.91,
+        "low": 1408.07,
+        "close": 1505.37,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-04-30T00:00:00",
+        "open": 1508.26,
+        "high": 1529.48,
+        "low": 1409.9,
+        "close": 1491.87,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-05-30T00:00:00",
+        "open": 1503.44,
+        "high": 1586.38,
+        "low": 1461.24,
+        "close": 1467.76,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-06-30T00:00:00",
+        "open": 1454.27,
+        "high": 1468.73,
+        "low": 1351.25,
+        "close": 1385.92,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-07-31T00:00:00",
+        "open": 1385.41,
+        "high": 1473.91,
+        "low": 1376.56,
+        "close": 1397.87,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-08-29T00:00:00",
+        "open": 1398.07,
+        "high": 1470.96,
+        "low": 1390.33,
+        "close": 1455.22,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-09-30T00:00:00",
+        "open": 1457.39,
+        "high": 1512.27,
+        "low": 1404.1,
+        "close": 1419.82,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-10-31T00:00:00",
+        "open": 1411.96,
+        "high": 1463.09,
+        "low": 1391.43,
+        "close": 1406.07,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-11-28T00:00:00",
+        "open": 1407.04,
+        "high": 1461.19,
+        "low": 1396.24,
+        "close": 1426.22,
+        "volume": 0
+      },
+      {
+        "datetime": "2025-12-31T00:00:00",
+        "open": 1426.71,
+        "high": 1437.79,
+        "low": 1360.02,
+        "close": 1377.18,
+        "volume": 0
+      }
+    ]
+  },
+  "orders_data": {
+    "orders": [
+      {
+        "datetime": "2025-01-06T00:00:00",
+        "type": "buy",
+        "code": "600519.SH",
+        "name": "贵州茅台",
+        "price": 1412.33,
+        "size": 100,
+        "comm": 42.37,
+        "value": 141233.0,
+        "pos_size": 100,
+        "cash": 858724.63,
+        "total_value": 999957.63
+      },
+      {
+        "datetime": "2025-05-12T00:00:00",
+        "type": "sell",
+        "code": "600519.SH",
+        "name": "贵州茅台",
+        "price": 1573.67,
+        "size": 100,
+        "comm": 125.89,
+        "value": 157367.0,
+        "pos_size": 0,
+        "cash": 1015965.74,
+        "total_value": 1015965.74
+      },
+      {
+        "datetime": "2025-02-10T00:00:00",
+        "type": "buy",
+        "code": "000001.SZ",
+        "name": "平安银行",
+        "price": 10.85,
+        "size": 5000,
+        "comm": 16.27,
+        "value": 54250.0,
+        "pos_size": 5000,
+        "cash": 961699.47,
+        "total_value": 1015949.47
+      },
+      {
+        "datetime": "2025-04-07T00:00:00",
+        "type": "sell",
+        "code": "000001.SZ",
+        "name": "平安银行",
+        "price": 10.16,
+        "size": 5000,
+        "comm": 40.64,
+        "value": 50800.0,
+        "pos_size": 0,
+        "cash": 1012458.83,
+        "total_value": 1012458.83
+      },
+      {
+        "datetime": "2025-03-04T00:00:00",
+        "type": "buy",
+        "code": "601318.SH",
+        "name": "中国平安",
+        "price": 47.89,
+        "size": 1200,
+        "comm": 17.24,
+        "value": 57468.0,
+        "pos_size": 1200,
+        "cash": 954973.59,
+        "total_value": 1012441.59
+      },
+      {
+        "datetime": "2025-10-15T00:00:00",
+        "type": "sell",
+        "code": "601318.SH",
+        "name": "中国平安",
+        "price": 56.87,
+        "size": 1200,
+        "comm": 54.6,
+        "value": 68244.0,
+        "pos_size": 0,
+        "cash": 1023162.99,
+        "total_value": 1023162.99
+      }
+    ]
+  },
+  "trades_data": {
+    "trades": [
+      {
+        "code": "600519.SH",
+        "name": "贵州茅台",
+        "direction": "Long",
+        "open_datetime": "2025-01-06T00:00:00",
+        "close_datetime": "2025-05-12T00:00:00",
+        "size": 100,
+        "price": 1412.33,
+        "close_price": 1573.67,
+        "return_pct": 0.113,
+        "commission": 168.26,
+        "pnl": 15965.74
+      },
+      {
+        "code": "000001.SZ",
+        "name": "平安银行",
+        "direction": "Long",
+        "open_datetime": "2025-02-10T00:00:00",
+        "close_datetime": "2025-04-07T00:00:00",
+        "size": 5000,
+        "price": 10.85,
+        "close_price": 10.16,
+        "return_pct": -0.0646,
+        "commission": 56.91,
+        "pnl": -3506.91
+      },
+      {
+        "code": "601318.SH",
+        "name": "中国平安",
+        "direction": "Long",
+        "open_datetime": "2025-03-04T00:00:00",
+        "close_datetime": "2025-10-15T00:00:00",
+        "size": 1200,
+        "price": 47.89,
+        "close_price": 56.87,
+        "return_pct": 0.1863,
+        "commission": 71.84,
+        "pnl": 10704.16
+      }
+    ]
+  },
+  "portfolio_data": {
+    "data": [
+      {
+        "datetime": "2025-01-02T00:00:00",
+        "value": 1000000.0
+      },
+      {
+        "datetime": "2025-02-03T00:00:00",
+        "value": 1000000.0
+      },
+      {
+        "datetime": "2025-03-03T00:00:00",
+        "value": 1000000.0
+      },
+      {
+        "datetime": "2025-04-01T00:00:00",
+        "value": 1000000.0
+      },
+      {
+        "datetime": "2025-05-06T00:00:00",
+        "value": 996493.09
+      },
+      {
+        "datetime": "2025-06-03T00:00:00",
+        "value": 1012458.83
+      },
+      {
+        "datetime": "2025-07-01T00:00:00",
+        "value": 1012458.83
+      },
+      {
+        "datetime": "2025-08-01T00:00:00",
+        "value": 1012458.83
+      },
+      {
+        "datetime": "2025-09-01T00:00:00",
+        "value": 1012458.83
+      },
+      {
+        "datetime": "2025-10-09T00:00:00",
+        "value": 1012458.83
+      },
+      {
+        "datetime": "2025-11-03T00:00:00",
+        "value": 1023162.99
+      },
+      {
+        "datetime": "2025-12-01T00:00:00",
+        "value": 1023162.99
+      }
+    ]
+  },
+  "position_data": {
+    "data": [
+      {
+        "datetime": "2025-01-02T00:00:00",
+        "value": 0.0
+      },
+      {
+        "datetime": "2025-02-03T00:00:00",
+        "value": 141233.0
+      },
+      {
+        "datetime": "2025-03-03T00:00:00",
+        "value": 195483.0
+      },
+      {
+        "datetime": "2025-04-01T00:00:00",
+        "value": 252951.0
+      },
+      {
+        "datetime": "2025-05-06T00:00:00",
+        "value": 198701.0
+      },
+      {
+        "datetime": "2025-06-03T00:00:00",
+        "value": 57468.0
+      },
+      {
+        "datetime": "2025-07-01T00:00:00",
+        "value": 57468.0
+      },
+      {
+        "datetime": "2025-08-01T00:00:00",
+        "value": 57468.0
+      },
+      {
+        "datetime": "2025-09-01T00:00:00",
+        "value": 57468.0
+      },
+      {
+        "datetime": "2025-10-09T00:00:00",
+        "value": 57468.0
+      },
+      {
+        "datetime": "2025-11-03T00:00:00",
+        "value": 0.0
+      },
+      {
+        "datetime": "2025-12-01T00:00:00",
+        "value": 0.0
+      }
+    ]
+  },
+  "indicators_data": [
+    {
+      "id": "MA20_600519.SH_overlay",
+      "name": "MA20 · 600519.SH",
+      "subplot": false,
+      "render_lines": [
+        "ma20"
+      ],
+      "lines": [
+        {
+          "name": "ma20",
+          "color": "#2962FF",
+          "width": 2,
+          "method": "line",
+          "marker": null,
+          "marker_position": null,
+          "marker_shape": null,
+          "marker_text": null,
+          "marker_size": null,
+          "style": "solid",
+          "price_scale_id": "candle_pane",
+          "price_format": null,
+          "opacity": null,
+          "data": [
+            1536.0,
+            1554.0,
+            1568.0,
+            1582.0,
+            1600.0,
+            1612.0,
+            1624.0,
+            1640.0,
+            1652.0,
+            1668.0,
+            1680.0,
+            1692.0
+          ]
+        }
+      ]
+    }
+  ],
+  "analysis_data": {
+    "tradeanalyzer": {
+      "total": {
+        "total": 3,
+        "open": 0,
+        "closed": 3
+      },
+      "streak": {
+        "won": {
+          "current": 1,
+          "longest": 1
+        },
+        "lost": {
+          "current": 1,
+          "longest": 1
+        }
+      },
+      "pnl": {
+        "gross": {
+          "total": 23460.0,
+          "average": 7820.0
+        },
+        "net": {
+          "total": 23162.99,
+          "average": 7721.0
+        }
+      },
+      "won": {
+        "total": 2,
+        "pnl": {
+          "total": 26669.9,
+          "average": 13334.95,
+          "max": 15965.74
+        }
+      },
+      "lost": {
+        "total": 1,
+        "pnl": {
+          "total": -3506.91,
+          "average": -3506.91,
+          "max": -3506.91
+        }
+      },
+      "long": {
+        "total": 3,
+        "pnl": {
+          "total": 23162.99,
+          "average": 7721.0,
+          "won": {
+            "total": 26669.9,
+            "average": 13334.95,
+            "max": 15965.74
+          },
+          "lost": {
+            "total": -3506.91,
+            "average": -3506.91,
+            "max": -3506.91
+          }
+        },
+        "won": 2,
+        "lost": 1
+      },
+      "short": {
+        "total": 0,
+        "pnl": {
+          "total": 0.0,
+          "average": 0.0,
+          "won": {
+            "total": 0.0,
+            "average": 0.0,
+            "max": 0.0
+          },
+          "lost": {
+            "total": 0.0,
+            "average": 0.0,
+            "max": 0.0
+          }
+        },
+        "won": 0,
+        "lost": 0
+      },
+      "len": {
+        "total": 275,
+        "average": 91.7,
+        "max": 155,
+        "min": 33,
+        "won": {
+          "total": 242,
+          "average": 121.0,
+          "max": 155,
+          "min": 87
+        },
+        "lost": {
+          "total": 33,
+          "average": 33.0,
+          "max": 33,
+          "min": 33
+        },
+        "long": {
+          "total": 275,
+          "average": 91.7,
+          "max": 155,
+          "min": 33,
+          "won": {
+            "total": 242,
+            "average": 121.0,
+            "max": 155,
+            "min": 87
+          },
+          "lost": {
+            "total": 33,
+            "average": 33.0,
+            "max": 33,
+            "min": 33
+          }
+        },
+        "short": {
+          "total": 0,
+          "average": 0.0,
+          "max": 0,
+          "min": 0,
+          "won": {
+            "total": 0,
+            "average": 0.0,
+            "max": 0,
+            "min": 0
+          },
+          "lost": {
+            "total": 0,
+            "average": 0.0,
+            "max": 0,
+            "min": 0
+          }
+        }
+      }
+    },
+    "drawdown": {
+      "len": 20,
+      "drawdown": 4.2,
+      "moneydown": 42000.0,
+      "max": {
+        "len": 12,
+        "drawdown": 4.2,
+        "moneydown": 42000.0
+      }
+    },
+    "sharpe": {
+      "sharperatio": 0.32
+    },
+    "returns": {
+      "rtot": 0.0232,
+      "ravg": 0.00084,
+      "rnorm": 0.0232,
+      "rnorm100": 2.32
+    },
+    "sqn": {
+      "sqn": 1.0,
+      "trades": 3
+    },
+    "calmar": {
+      "2025-03-31T00:00:00": 0.005,
+      "2025-06-30T00:00:00": 0.004,
+      "2025-09-30T00:00:00": 0.008,
+      "2025-12-31T00:00:00": 0.006
+    }
+  },
+  "metrics_data": {
+    "initial_capital": 1000000.0,
+    "final_value": 1023162.99,
+    "total_pnl": 23162.99,
+    "total_roi": 0.0232,
+    "annual_roi": 0.0254,
+    "max_drawdown": 4.2,
+    "profit_factor": 7.6,
+    "win_rate": 66.67,
+    "sharpe_ratio": 0.32,
+    "volatility": 0.12,
+    "sortino_ratio": 0.45,
+    "calmar_ratio": 0.55,
+    "max_loss_streak": 1,
+    "total_trades": 3,
+    "avg_pl_ratio": 7.82,
+    "avg_pl": 7721.0,
+    "sqn": 1.0
+  }
+}

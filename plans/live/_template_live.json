@@ -1,0 +1,128 @@
+{
+  "_readme": "A股看板·实盘/批次计划唯一输入格式（多股票版）。复制本文件并改名（去掉下划线前缀），按需修改后放入 plans/live/，或在「交易持仓-实盘-批次计划」上传，或丢进 trade_inbox/ 由定时实盘扫描执行。要点：1) mode 固定 live；2) 每个 batch 必须有 id/schedule/items，id 不可重复；3) schedule.type 支持 once（date+time）、daily（weekdays+time）、monthly_nth_weekday（nth+weekday+time），可加 date_from/date_to 限定有效期；4) item.code 用 6位+.SH/.SZ/.BJ；5) exits 按 seq 从小到大触发，kind 支持 sl(止损比例) / tp(止盈比例) / trail(移动止盈，arm 为启动涨幅) / fixed_price(固定价) / timed(到期日清仓)；6) qty.type 支持 shares(股数) / pct(比例) / all(全部)；price.type 支持 market / limit；7) 模板内所有批次 enabled=false，确认无误后再改 true。",
+  "version": "1.1",
+  "timezone": "Asia/Shanghai",
+  "mode": "live",
+  "name": "多股票批次计划（示例模板）",
+  "defaults": {
+    "price": { "type": "market", "value": 0 },
+    "qty": { "type": "shares", "value": 100 },
+    "exit_qty": { "type": "pct", "value": 1.0 }
+  },
+  "batches": [
+    {
+      "id": "live_open_once",
+      "name": "一次性建仓（once）",
+      "enabled": false,
+      "schedule": {
+        "type": "once",
+        "date": "2026-11-20",
+        "time": "09:31"
+      },
+      "items": [
+        {
+          "code": "600519.SH",
+          "name": "贵州茅台",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 3, "kind": "trail", "value": 0.05, "arm": 0.20, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2027-01-29", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 1000 },
+          "price": { "type": "limit", "value": 11.8 },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "tp", "value": 0.12, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 3, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "all" } },
+            { "seq": 4, "kind": "timed", "due": "2027-01-29", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "601318.SH",
+          "name": "中国平安",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 800 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "fixed_price", "value": 62.5, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 3, "kind": "timed", "due": "2027-01-29", "qty": { "type": "all" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "live_rebalance_daily",
+      "name": "每日调仓（daily）",
+      "enabled": false,
+      "schedule": {
+        "type": "daily",
+        "time": "14:50",
+        "weekdays": [1, 2, 3, 4, 5],
+        "date_from": "2026-11-20",
+        "date_to": "2027-01-29"
+      },
+      "items": [
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "sell",
+          "qty": { "type": "pct", "value": 0.3 },
+          "price": { "type": "market" },
+          "exits": []
+        },
+        {
+          "code": "601318.SH",
+          "name": "中国平安",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 200 },
+          "price": { "type": "limit", "value": 58.0 },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.05, "qty": { "type": "all" } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.10, "qty": { "type": "all" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "live_review_monthly",
+      "name": "每月第一个周五复核（monthly_nth_weekday）",
+      "enabled": false,
+      "schedule": {
+        "type": "monthly_nth_weekday",
+        "nth": 1,
+        "weekday": 5,
+        "time": "15:00"
+      },
+      "items": [
+        {
+          "code": "600519.SH",
+          "name": "贵州茅台",
+          "side": "sell",
+          "qty": { "type": "all" },
+          "price": { "type": "market" },
+          "exits": []
+        },
+        {
+          "code": "601318.SH",
+          "name": "中国平安",
+          "side": "sell",
+          "qty": { "type": "pct", "value": 0.2 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "fixed_price", "value": 66.0, "qty": { "type": "all" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -129,18 +129,27 @@ stock_indicators.py        技术指标
 bt_indicator_bridge.py     Backtrader 指标桥
 indicators/                指标实现
 vendor/                    ECharts / KLineCharts 本地库
-plans/                     批次买卖计划（JSON）
+plans/                     两类计划总目录
   ├── live/                实盘计划（默认写入 sim_trading_live.db，多实盘各自 live_accts/<id>.db）
-  ├── backtest/            回测计划（写入 sim_trading.db）
-  └── templates/           结构模板与完整示例
+  │   └── _template_live.json   多股票实盘计划模板（enabled=false，复制改名后再启用）
+  └── backtest_results/    回测结果 JSON（回测模式唯一输入目录）
+      ├── template_backtest.json  多股票回测结果模板
+      └── _pinned.json            页面「暂存指标」累计记录
 trade_inbox/               定时实盘收件箱（运行时生成，不入库）
 Dockerfile / docker-compose.yml / DEPLOY_FNOS.md   飞牛OS 部署
 ```
 
-## 批次计划怎么放
+## 两类 JSON 怎么放
 
-- 实盘：`plans/live/plan_live_YYYYMMDD_名称.json`
-- 回测：`plans/backtest/plan_bt_YYYYMMDD_名称.json`
-- 先复制 `plans/templates/quant_batch_template.json` 改，字段说明见 `plans/README.md`
+系统只认两类业务 JSON，模板各一份（均支持多股票）：
 
-前端「交易持仓」页选择模式后填写**相对项目根的路径**，两种模式各记各的账、各画各的买卖标记，互不干扰。
+| 类型 | 放哪里 | 模板 | 由谁生成 |
+|---|---|---|---|
+| 回测结果 | `plans/backtest_results/` | `template_backtest.json` | backtrader / SuperPlot 回测脚本导出 |
+| 实盘批次计划 | `plans/live/`（或 `trade_inbox/`） | `_template_live.json` | 手工编写 / 策略脚本生成 |
+
+- **回测**：文件放进 `plans/backtest_results/` 后，前端「交易持仓 → 回测」下拉自动出现；每笔 `orders_data.orders[]` 必须带 `code`（`600519.SH`），K 线买卖点按 `code` 过滤，多股票不会串图。
+- **实盘**：复制 `plans/live/_template_live.json`，改名去掉下划线（如 `plan_live_20261120_建仓.json`），确认批次无误后把 `enabled` 改 `true`；也可直接在「实盘」面板上传，或丢进 `trade_inbox/` 由定时实盘扫描。
+- 文件名不要以 `_` 开头（`_` 前缀为系统内部文件：模板、`_pinned.json` 暂存记录、`_upload_*` 上传缓存）。
+
+前端「交易持仓」页两种模式各记各的账、各画各的买卖标记，互不干扰。
