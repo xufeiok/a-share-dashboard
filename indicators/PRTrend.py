@@ -55,8 +55,8 @@ cx_a / cx_b / cx_c : 对应周期两条直线的交点（单点 marker 形式显
 import backtrader as bt
 import numpy as np
 
-# 允许直接指定的字段名
-VALID_FIELDS = ('high', 'low', 'open', 'close')
+# 允许直接指定的字段名（含派生价：hl2/hlc3/ohlc4）
+VALID_FIELDS = ('high', 'low', 'open', 'close', 'hl2', 'hlc3', 'ohlc4')
 
 # 字段组合预设：'HL' = 最高价/最低价，'OC' = 开盘价/收盘价
 FIELD_PRESETS = {
@@ -97,6 +97,7 @@ class PeriodRegressionTrend(bt.Indicator):
 
     FIELD_LABEL = {
         'high': 'High', 'low': 'Low', 'open': 'Open', 'close': 'Close',
+        'hl2': 'HL2', 'hlc3': 'HLC3', 'ohlc4': 'OHLC4',
     }
 
     def __init__(self):
@@ -118,9 +119,8 @@ class PeriodRegressionTrend(bt.Indicator):
         up, lo = self._resolve_fields()
         self.upper_field = up
         self.lower_field = lo
-        # 字段名 -> data 上的取数函数（如 self.data.high / self.data.close）
-        self._upper_get = getattr(self.data, up)
-        self._lower_get = getattr(self.data, lo)
+        # 字段取值统一走 _field_series（支持 high/low/open/close 与 hl2/hlc3/ohlc4 派生价）
+        self._upper_field, self._lower_field = up, lo
 
         self.fit_info = {}                       # slot -> 最新回归结果
         self.cross_info = {}                     # slot -> 最近一次交点
@@ -161,8 +161,7 @@ class PeriodRegressionTrend(bt.Indicator):
         up, lo = up.lower(), lo.lower()
         if up not in VALID_FIELDS or lo not in VALID_FIELDS:
             raise ValueError('字段仅支持 %s' % (VALID_FIELDS,))
-        if up == lo:
-            raise ValueError('上轨字段与下轨字段不能相同')
+        # 允许上下轨选择同一价格类型（两条回归线重合），不做拦截
         return up, lo
 
     # ------------------------------------------------------------------ #
@@ -191,14 +190,37 @@ class PeriodRegressionTrend(bt.Indicator):
             return None
         return arr
 
+    def _field_series(self, name, size):
+        """按字段名取最近 size 根价格序列；派生价用 O/H/L/C 现场合成"""
+        if len(self) < size:
+            return None
+        d = self.data
+        def base(field):
+            return np.asarray(getattr(d, field).get(ago=0, size=size), dtype=float)
+        if name in ('high', 'low', 'open', 'close'):
+            arr = base(name)
+        else:
+            h, l = base('high'), base('low')
+            if name == 'hl2':
+                arr = (h + l) / 2.0
+            elif name == 'hlc3':
+                arr = (h + l + base('close')) / 3.0
+            elif name == 'ohlc4':
+                arr = (base('open') + h + l + base('close')) / 4.0
+            else:
+                return None
+        if np.isnan(arr).any():
+            return None
+        return arr
+
     def _fit_one(self, period, slot):
         """对 period 周期的上/下轨字段集合做线性回归，回溯写入线段与交点"""
         hi_line = getattr(self.lines, 'hi_' + slot)
         lo_line = getattr(self.lines, 'lo_' + slot)
         cx_line = getattr(self.lines, 'cx_' + slot)
 
-        upper = self._series(self._upper_get, period)
-        lower = self._series(self._lower_get, period)
+        upper = self._field_series(self.upper_field, period)
+        lower = self._field_series(self.lower_field, period)
         if upper is None or lower is None:
             self.fit_info[slot] = {'period': period, 'ok': False}
             return

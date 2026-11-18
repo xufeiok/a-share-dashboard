@@ -97,13 +97,14 @@ class BridgeStrategy(bt.Strategy):
         ('vidya_len', 10), ('vidya_mom', 20), ('vidya_atr', 200), ('vidya_sma', 15), ('vidya_band', 2.0),
         ('uma_type', 'EMA'), ('uma_periods', (20, 50, 100)),
         ('xtr_period', 14), ('xtr_ma', 9), ('xtr_band', 20), ('xtr_mult', 2.0),
-        ('obv_ma', 20),
+        ('obv_ma', 20), ('adx_period', 14),
         ('kdj_period', 9), ('kdj_signal', 3),
         ('rsi_len', 14), ('rsi_ma_len', 14), ('rsi_ma_type', 'SMA'),
         ('macd_fast', 12), ('macd_slow', 26), ('macd_signal', 9),
         ('bb_period', 50), ('bb_dev', 2.0), ('bb_roc', 5), ('bb_acc', 3), ('bb_roll', 60),
         ('bb_w_nbbw', 0.5), ('bb_w_roc', 0.3), ('bb_w_acc', 0.2),
         ('prt_periods', (5, 20, 60)), ('prt_field_pair', 'HL'),
+        ('prt_upper_field', None), ('prt_lower_field', None),
         ('prt_show_cross', True), ('prt_extend_forward', 0),
     )
 
@@ -120,6 +121,8 @@ class BridgeStrategy(bt.Strategy):
             'xtr': _xtr_mod.X_XTR(d, xtr_period=p.xtr_period, ma_length=p.xtr_ma,
                                   band_period=p.xtr_band, band_mult=p.xtr_mult),
             'obv': _obv_mod.X_OBV(d, ma_length=p.obv_ma),
+            # ADX：backtrader 官方 Wilders DMI（plusDI/minusDI/adx 三线）
+            'adx': bt.indicators.DirectionalMovementIndex(d, period=p.adx_period),
             'kdj': _kdj_mod.X_KDJ(d, period=p.kdj_period, signal=p.kdj_signal),
             'rsi': _rsi_mod.X_RSI(d, rsi_length=p.rsi_len, ma_length=p.rsi_ma_len, ma_type=p.rsi_ma_type),
             'macd': EnhancedMACD(d, fast_period=p.macd_fast, slow_period=p.macd_slow, signal_period=p.macd_signal),
@@ -136,6 +139,7 @@ class BridgeStrategy(bt.Strategy):
             try:
                 self.inds['prt'] = PeriodRegressionTrend(
                     d, periods=_norm_prt_periods(p.prt_periods), field_pair=pair,
+                    upper_field=p.prt_upper_field, lower_field=p.prt_lower_field,
                     show_cross=bool(p.prt_show_cross), extend_forward=p.prt_extend_forward)
             except Exception as e:
                 print('[bt_bridge] PRTrend 初始化失败: %s' % e)
@@ -221,6 +225,7 @@ def calc_bt_indicators(df, params=None):
                         xtr_period=p.get('xtr_period', 14), xtr_ma=p.get('xtr_ma', 9),
                         xtr_band=p.get('xtr_band', 20), xtr_mult=p.get('xtr_mult', 2.0),
                         obv_ma=p.get('obv_ma', 20),
+                        adx_period=p.get('adx_period', 14),
                         kdj_period=p.get('kdj_period', 9), kdj_signal=p.get('kdj_signal', 3),
                         rsi_len=p.get('rsi_length', 14), rsi_ma_len=p.get('rsi_ma_length', 14),
                         rsi_ma_type=p.get('rsi_ma_type', 'SMA'),
@@ -233,6 +238,8 @@ def calc_bt_indicators(df, params=None):
                         bb_w_acc=p.get('w_acc', 0.2),
                         prt_periods=p.get('prt_periods', (5, 20, 60)),
                         prt_field_pair=p.get('prt_field_pair', 'HL'),
+                        prt_upper_field=p.get('prt_upper_field'),
+                        prt_lower_field=p.get('prt_lower_field'),
                         prt_show_cross=p.get('prt_show_cross', True),
                         prt_extend_forward=p.get('prt_extend_forward', 0))
     cerebro.run(runonce=False)  # 魔改包指标仅兼容逐根模式
@@ -272,6 +279,10 @@ def calc_bt_indicators(df, params=None):
         'obv': {'obv': _arr(inds['obv'].lines.obv), 'obv_ma': _arr(inds['obv'].lines.obv_ma)},
         'xtr': {'xtr': _arr(inds['xtr'].lines.xtr), 'xtr_ma': _arr(inds['xtr'].lines.xtr_ma),
                 'top': _arr(inds['xtr'].lines.top), 'bot': _arr(inds['xtr'].lines.bot)},
+        # ADX（bt 官方 DMI）：adx / +DI / -DI
+        'adx': {'adx': _arr(inds['adx'].lines.adx),
+                'pdi': _arr(inds['adx'].lines.plusDI),
+                'mdi': _arr(inds['adx'].lines.minusDI)},
         'bb_score': {'score': _arr(inds['bb'].lines.bb_trend_score)},
         # 成交量均线（官方 SMA，pandas rolling 与 bt SMA 数值等价）
         'vol_ma5': df['vol'].rolling(5).mean().to_numpy(),

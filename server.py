@@ -885,24 +885,44 @@ def get_volume():
     cached = _cache_get(cache_key)
     if cached:
         return jsonify(cached)
-    if not TUSHARE_READY:
+    if not TUSHARE_READY and not CH_URL:
         return jsonify([])
     result = []
-    # 用tushare获取上证指数和深证成指的历史成交额（amount单位：千元）
-    for market, ts_code in [('sh', '000001.SH'), ('sz', '399001.SZ')]:
-        try:
-            df = _ts_call('index_daily', ts_code=ts_code,
-                          fields='trade_date,amount', limit=days)
-            if df is not None and len(df) > 0:
-                df = df.sort_values('trade_date')
-                for i, (_, row) in enumerate(df.iterrows()):
-                    date = str(row['trade_date'])
-                    amount_yi = round(float(row['amount']) / 100000, 0) if row['amount'] else 0
-                    if len(result) <= i:
-                        result.append({'date': date, 'sh': 0, 'sz': 0})
-                    result[i][market] = amount_yi
-        except Exception:
-            continue
+    # 优先 ClickHouse（本地库稳定，避免 tushare 网络超时导致整块空白）
+    try:
+        rows = ch_query(
+            "SELECT trade_date, sumIf(amount, ts_code='000001.SH') AS sh, "
+            "sumIf(amount, ts_code='399001.SZ') AS sz "
+            "FROM quant_db.index_daily "
+            "WHERE ts_code IN ('000001.SH','399001.SZ') AND trade_date >= today() - %d "
+            "GROUP BY trade_date ORDER BY trade_date" % (days * 2 + 30))
+        for r in rows:
+            if len(r) < 3:
+                continue
+            result.append({
+                'date': str(r[0]).replace('-', ''),
+                'sh': round(float(r[1]) / 100000, 0),
+                'sz': round(float(r[2]) / 100000, 0),
+            })
+        result = result[-days:]
+    except Exception as e:
+        print('[WARN] volume from CH fail:', e)
+    # 兜底：tushare（amount 单位千元）
+    if not result and TUSHARE_READY:
+        for market, ts_code in [('sh', '000001.SH'), ('sz', '399001.SZ')]:
+            try:
+                df = _ts_call('index_daily', ts_code=ts_code,
+                              fields='trade_date,amount', limit=days)
+                if df is not None and len(df) > 0:
+                    df = df.sort_values('trade_date')
+                    for i, (_, row) in enumerate(df.iterrows()):
+                        date = str(row['trade_date'])
+                        amount_yi = round(float(row['amount']) / 100000, 0) if row['amount'] else 0
+                        if len(result) <= i:
+                            result.append({'date': date, 'sh': 0, 'sz': 0})
+                        result[i][market] = amount_yi
+            except Exception:
+                continue
     totals = [r['sh'] + r['sz'] for r in result]
     vma5 = _calc_ma(totals, 5)
     vma20 = _calc_ma(totals, 20)
@@ -910,7 +930,8 @@ def get_volume():
         r['total'] = r['sh'] + r['sz']
         r['vma5'] = vma5[i]
         r['vma20'] = vma20[i]
-    _cache_set(cache_key, result)
+    if result:
+        _cache_set(cache_key, result)
     return jsonify(result)
 
 
@@ -1089,6 +1110,43 @@ def get_stock_ranking():
 
 # ==================== Tushare 数据接口（T+1盘后统计指标） ====================
 
+def _pe_from_ch():
+    """ClickHouse 兜底：全市场加权 PE / 中位 PE / 总市值 / PE 历史分位（tushare 超时或限流时使用）"""
+    res = {'tradeDate': '', 'marketPE': None, 'medianPE': None, 'totalMV': None, 'floatMV': None,
+           'indices': [], 'pePercentile': None, 'peHistory': {'dates': [], 'series': []},
+           'source': 'ClickHouse (T+1)'}
+    try:
+        rows = ch_query(
+            "SELECT max(trade_date), round(sum(total_mv)/sum(total_mv/pe_ttm), 2), round(median(pe_ttm), 2), "
+            "round(sum(total_mv)/10000, 0), round(sum(circ_mv)/10000, 0) "
+            "FROM quant_db.daily_indicators "
+            "WHERE trade_date = (SELECT max(trade_date) FROM quant_db.daily_indicators) "
+            "AND pe_ttm > 0 AND total_mv > 0")
+        if rows and len(rows[0]) >= 5:
+            r = rows[0]
+            res['tradeDate'] = str(r[0])
+            res['marketPE'] = float(r[1]) if r[1] else None
+            res['medianPE'] = float(r[2]) if r[2] else None
+            res['totalMV'] = float(r[3]) if r[3] else None
+            res['floatMV'] = float(r[4]) if r[4] else None
+        hist = ch_query(
+            "SELECT trade_date, round(sum(total_mv)/sum(total_mv/pe_ttm), 2) AS pe "
+            "FROM quant_db.daily_indicators "
+            "WHERE trade_date >= today() - 420 AND pe_ttm > 0 AND total_mv > 0 "
+            "GROUP BY trade_date ORDER BY trade_date")
+        pes = [float(x[1]) for x in hist if len(x) > 1 and x[1]]
+        if pes and res['marketPE']:
+            res['pePercentile'] = round(sum(1 for p in pes if p <= res['marketPE']) / len(pes) * 100, 1)
+            tail_n = min(120, len(pes))
+            res['peHistory'] = {
+                'dates': [str(x[0]) for x in hist][-tail_n:],
+                'series': [{'name': '全市场加权PE', 'data': pes[-tail_n:]}],
+            }
+    except Exception as e:
+        print('[WARN] pe from CH fail:', e)
+    return res
+
+
 @app.route('/api/pe')
 def get_pe():
     """全市场PE(TTM) + 宽基PE对比 + 历史分位 + 自由流通市值"""
@@ -1102,7 +1160,11 @@ def get_pe():
     df_probe = _ts_call('index_dailybasic', ts_code='000300.SH',
                          fields='ts_code,trade_date,pe_ttm,pb')
     if df_probe is None or len(df_probe) == 0:
-        return jsonify({'error': 'no data'}), 503
+        # tushare 超时/限流时改用本地 ClickHouse 口径，避免整块模块 503 空白
+        result = _pe_from_ch()
+        if result.get('marketPE'):
+            _cache_set('pe_data', result)
+        return jsonify(result)
     latest_date = str(df_probe.iloc[0]['trade_date'])
     # 用最新交易日获取全部指数PE
     df_idx = _ts_call('index_dailybasic', trade_date=latest_date,
@@ -1245,6 +1307,41 @@ def get_north_money():
     return jsonify(result)
 
 
+def _margin_from_ch():
+    """ClickHouse 兜底两融：按日汇总融资余额(rzye)，新增额用相邻交易日差值近似"""
+    try:
+        rows = ch_query(
+            "SELECT trade_date, round(sum(rzye)/10000, 0) AS fbal "
+            "FROM quant_db.daily_indicators "
+            "WHERE trade_date >= today() - 120 AND rzye > 0 "
+            "GROUP BY trade_date ORDER BY trade_date")
+    except Exception as e:
+        print('[WARN] margin from CH fail:', e)
+        return {'error': 'no data'}, 503
+    if not rows:
+        return {'error': 'no data'}, 503
+    history, prev = [], None
+    for r in rows[-30:]:
+        if len(r) < 2 or not r[1]:
+            continue
+        bal = float(r[1])
+        new = round(bal - prev, 0) if prev is not None else 0
+        history.append({'date': str(r[0]).replace('-', ''), 'balance': bal,
+                        'new': new, 'financingBalance': bal})
+        prev = bal
+    if not history:
+        return {'error': 'no data'}, 503
+    latest = history[-1]
+    result = {
+        'tradeDate': latest['date'], 'totalBalance': latest['balance'],
+        'financingBalance': latest['financingBalance'], 'securitiesBalance': 0,
+        'dailyNew': latest['new'], 'history': history,
+        'source': 'ClickHouse 融资余额（近似）'
+    }
+    _cache_set('margin_data', result)
+    return jsonify(result)
+
+
 @app.route('/api/margin')
 def get_margin():
     """两融余额 + 两融新增 + 历史趋势"""
@@ -1258,7 +1355,7 @@ def get_margin():
                   start_date=time.strftime('%Y%m%d', time.localtime(time.time() - 86400 * 60)),
                   end_date=time.strftime('%Y%m%d'))
     if df is None or len(df) == 0:
-        return jsonify({'error': 'no data'}), 503
+        return _margin_from_ch()
 
     # 按日期汇总（上交所+深交所+北交所）
     daily = df.groupby('trade_date').agg({
@@ -1473,6 +1570,21 @@ def macro_treasury():
     return jsonify(result)
 
 
+def _cn_month_key(s):
+    """月份统一成 YYYY-MM：'2026年09月份' / '202609' / '2026-9' → '2026-09'"""
+    s = str(s).strip()
+    m = re.match(r'^(\d{4})年(\d{1,2})月', s)
+    if m:
+        return '%s-%02d' % (m.group(1), int(m.group(2)))
+    m = re.match(r'^(\d{4})(\d{2})$', s)
+    if m:
+        return '%s-%s' % (m.group(1), m.group(2))
+    m = re.match(r'^(\d{4})-(\d{1,2})', s)
+    if m:
+        return '%s-%02d' % (m.group(1), int(m.group(2)))
+    return s
+
+
 @app.route('/api/macro/cn-monthly')
 def macro_cn_monthly():
     """国内宏观月度数据：PMI/CPI/PPI/M2/社融"""
@@ -1480,19 +1592,56 @@ def macro_cn_monthly():
     if cached:
         return jsonify(cached)
     result = {'pmi': [], 'cpi': [], 'ppi': [], 'm2': [], 'sf': []}
-    # PMI/CPI/PPI用tushare
-    if TUSHARE_READY:
+    # PMI/CPI/PPI：akshare 优先（tushare 这些宏观接口当前 token 返回空表），失败再回退 tushare
+    try:
+        df = ak.macro_china_pmi()
+        if df is not None and len(df) > 0:
+            df = df.head(36).iloc[::-1]          # akshare 为降序，取最近 36 期后转升序
+            for _, row in df.iterrows():
+                result['pmi'].append({
+                    'month': _cn_month_key(row['月份']),
+                    'mfg': round(float(row['制造业-指数']), 1) if pd.notna(row['制造业-指数']) else None,
+                    'nonMfg': round(float(row['非制造业-指数']), 1) if pd.notna(row['非制造业-指数']) else None,
+                })
+    except Exception as e:
+        print('[WARN] akshare PMI 失败:', e)
+    try:
+        df = ak.macro_china_cpi()
+        if df is not None and len(df) > 0:
+            df = df.head(36).iloc[::-1]
+            for _, row in df.iterrows():
+                result['cpi'].append({
+                    'month': _cn_month_key(row['月份']),
+                    'yoy': round(float(row['全国-同比增长']), 2) if pd.notna(row['全国-同比增长']) else None,
+                })
+    except Exception as e:
+        print('[WARN] akshare CPI 失败:', e)
+    try:
+        df = ak.macro_china_ppi()
+        if df is not None and len(df) > 0:
+            df = df.head(36).iloc[::-1]
+            for _, row in df.iterrows():
+                result['ppi'].append({
+                    'month': _cn_month_key(row['月份']),
+                    'yoy': round(float(row['当月同比增长']), 2) if pd.notna(row['当月同比增长']) else None,
+                })
+    except Exception as e:
+        print('[WARN] akshare PPI 失败:', e)
+    # tushare 兜底（akshare 完全失败时）
+    if TUSHARE_READY and not (result['pmi'] and result['cpi'] and result['ppi']):
         for api_name, key, fields in [
             ('cn_pmi', 'pmi', 'month,pmi020302,pmi020401'),
             ('cn_cpi', 'cpi', 'month,nt_yoy'),
             ('cn_ppi', 'ppi', 'month,ppi_yoy'),
         ]:
+            if result[key]:
+                continue
             try:
                 df = _ts_call(api_name, fields=fields, limit=36)
                 if df is not None and len(df) > 0:
                     df = df.sort_values('month')
                     for _, row in df.iterrows():
-                        item = {'month': str(row['month'])}
+                        item = {'month': _cn_month_key(row['month'])}
                         if key == 'pmi':
                             item['mfg'] = round(float(row['pmi020302']), 1) if row['pmi020302'] else None
                             item['nonMfg'] = round(float(row['pmi020401']), 1) if row['pmi020401'] else None
@@ -1510,7 +1659,7 @@ def macro_cn_monthly():
             df = df.sort_values('月份')
             for _, row in df.tail(24).iterrows():
                 result['m2'].append({
-                    'month': str(row['月份']),
+                    'month': _cn_month_key(row['月份']),
                     'yoy': round(float(row['货币和准货币(M2)-同比增长']), 2) if pd.notna(row['货币和准货币(M2)-同比增长']) else None,
                 })
     except Exception:
@@ -1522,7 +1671,7 @@ def macro_cn_monthly():
             df = df.sort_values('月份')
             for _, row in df.tail(24).iterrows():
                 result['sf'].append({
-                    'month': str(row['月份']),
+                    'month': _cn_month_key(row['月份']),
                     'total': round(float(row['社会融资规模增量']), 0) if pd.notna(row['社会融资规模增量']) else None,
                 })
     except Exception:

@@ -239,6 +239,12 @@ body { display: flex; flex-direction: column; }
 .trd-in{background:var(--bg-primary);border:1px solid var(--border-color);border-radius:3px;color:var(--text-primary);font-size:12px;padding:4px 7px;min-width:0}
 .trd-in.xs{width:64px}
 .trd-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lv-sec{display:flex;flex-direction:column;gap:7px;padding:9px 11px;border:1px solid rgba(255,255,255,.05);border-radius:6px;background:rgba(255,255,255,.02)}
+.lv-sec-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;font-weight:600;color:var(--text-secondary);letter-spacing:.2px}
+.lv-sec-h b{color:var(--accent-blue);font-weight:600}
+.lv-sec-h .trd-sub{font-weight:400}
+.lv-fld{display:flex;align-items:center;gap:6px}
+.lv-fld>span{font-size:11px;color:var(--text-secondary);flex:none}
 .trd-chk{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);white-space:nowrap}
 .trd-btn{background:var(--bg-hover);border:1px solid var(--border-color);color:var(--text-primary);border-radius:3px;font-size:12px;padding:5px 14px;cursor:pointer}
 .trd-btn:hover{background:var(--bg-primary)}
@@ -1430,6 +1436,7 @@ body { display: flex; flex-direction: column; }
 .sk-modal-row { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:12px; color:var(--text-secondary); }
 .sk-modal-row label { width:64px; flex:none; }
 .sk-modal-row input { flex:1; min-width:0; background:var(--bg-primary); border:1px solid var(--border-color); color:var(--text-primary); border-radius:4px; padding:5px 8px; font-size:12px; font-family:var(--font-mono); }
+.sk-modal-row select { flex:1; min-width:0; background:var(--bg-primary); border:1px solid var(--border-color); color:var(--text-primary); border-radius:4px; padding:5px 8px; font-size:12px; font-family:var(--font-mono); outline:none; }
 .sk-modal-ok { margin-top:10px; width:100%; background:var(--accent-blue); border:none; color:#fff; border-radius:5px; padding:7px 0; font-size:13px; cursor:pointer; }
 /* 板块成分股：长列表滚动 + 表头吸顶 */
 #indMembersTable, #concMembersTable { max-height:620px; overflow:auto; }
@@ -2178,6 +2185,7 @@ body { display: flex; flex-direction: column; }
                     <label data-g="sub"><input type="checkbox" data-i="obv"> X_OBV</label>
                     <label data-g="sub"><input type="checkbox" data-i="cci"> CCI</label>
                     <label data-g="sub"><input type="checkbox" data-i="dmi"> DMI</label>
+                    <label data-g="sub"><input type="checkbox" data-i="adx"> ADX</label>
                     <label data-g="sub"><input type="checkbox" data-i="trix"> TRIX</label>
                     <label data-g="sub"><input type="checkbox" data-i="boll2"> BOLL</label>
                     <label data-g="sub"><input type="checkbox" data-i="xtr"> X_XTR</label>
@@ -2352,46 +2360,60 @@ body { display: flex; flex-direction: column; }
             <span>实盘执行</span>
             <span class="trd-sub">选择批次计划 JSON → 立即执行 或 定时执行，每次都会新建一个独立实盘账本</span>
           </div>
-          <div class="trd-body">
-            <div class="trd-row">
-              <input id="lvNewName" class="trd-in" style="width:170px" maxlength="24" placeholder="实盘名称（留空取文件名）">
-              <input id="lvNewCash" class="trd-in" type="number" min="1000" step="10000" style="width:118px" placeholder="初始资金">
-              <input id="lvPlanFile" type="file" accept=".json,application/json" style="font-size:11px">
-              <span class="trd-sub" id="lvPlanName">未选择 JSON</span>
+          <div class="trd-body" style="gap:10px">
+            <div class="lv-sec">
+              <div class="lv-sec-h"><b>①</b><span>计划与账户</span><span class="trd-sub">名称留空取文件名；资金留空默认 50 万</span></div>
+              <div class="trd-row">
+                <label class="lv-fld"><span>实盘名称</span><input id="lvNewName" class="trd-in" style="width:180px" maxlength="24" placeholder="留空取文件名"></label>
+                <label class="lv-fld"><span>初始资金</span><input id="lvNewCash" class="trd-in" type="number" min="1000" step="10000" style="width:120px" placeholder="500000"></label>
+              </div>
+              <div class="trd-row">
+                <label class="lv-fld" style="flex:1;min-width:280px"><span>计划文件</span>
+                  <input id="lvPlanFile" type="file" accept=".json,application/json" style="font-size:11px;flex:1;min-width:0"></label>
+                <span class="trd-sub" id="lvPlanName">未选择 JSON</span>
+              </div>
             </div>
-            <div class="trd-row">
-              <span class="trd-sub">执行方式</span>
-              <select id="lvExecMode" class="trd-in" style="width:132px">
-                <option value="now">立即实盘执行</option>
-                <option value="sched">定时执行</option>
-              </select>
-              <select id="lvSchType" class="trd-in" style="width:132px;display:none">
-                <option value="interval">按间隔（每 N 分钟）</option>
-                <option value="daily">每天定点</option>
-                <option value="weekly">每周定点</option>
-                <option value="once">指定日期</option>
-              </select>
-              <span data-w="interval" style="display:none"><input id="lvSchInterval" class="trd-in xs" type="number" min="1" value="60" style="width:70px"><span class="trd-sub">分钟</span></span>
-              <span data-w="time" style="display:none"><input id="lvSchTime" class="trd-in" type="time" value="09:31" style="width:100px"><span class="trd-sub">执行时刻</span></span>
-              <span data-w="week" style="display:none"><select id="lvSchWeek" class="trd-in" style="width:86px">
-                <option value="0">周一</option><option value="1">周二</option><option value="2">周三</option><option value="3">周四</option>
-                <option value="4">周五</option><option value="5">周六</option><option value="6">周日</option></select></span>
-              <span data-w="date" style="display:none"><input id="lvSchDate" class="trd-in" type="date" style="width:136px"></span>
-              <label class="trd-chk" data-w="schedopt" style="display:none"><input type="checkbox" id="lvSchSession" checked> 仅交易时段</label>
-              <label class="trd-chk" data-w="schedopt" style="display:none"><input type="checkbox" id="lvSchEnabled" checked> 启用</label>
+
+            <div class="lv-sec">
+              <div class="lv-sec-h"><b>②</b><span>执行方式</span><span class="trd-sub">立即执行；或按固定节奏定时读取同一份 JSON</span></div>
+              <div class="trd-row">
+                <select id="lvExecMode" class="trd-in" style="width:132px">
+                  <option value="now">立即实盘执行</option>
+                  <option value="sched">定时执行</option>
+                </select>
+                <select id="lvSchType" class="trd-in" style="width:132px;display:none">
+                  <option value="interval">按间隔（每 N 分钟）</option>
+                  <option value="daily">每天定点</option>
+                  <option value="weekly">每周定点</option>
+                  <option value="once">指定日期</option>
+                </select>
+                <span data-w="interval" style="display:none"><input id="lvSchInterval" class="trd-in xs" type="number" min="1" value="60" style="width:70px"><span class="trd-sub">分钟</span></span>
+                <span data-w="time" style="display:none"><input id="lvSchTime" class="trd-in" type="time" value="09:31" style="width:100px"><span class="trd-sub">执行时刻</span></span>
+                <span data-w="week" style="display:none"><select id="lvSchWeek" class="trd-in" style="width:86px">
+                  <option value="0">周一</option><option value="1">周二</option><option value="2">周三</option><option value="3">周四</option>
+                  <option value="4">周五</option><option value="5">周六</option><option value="6">周日</option></select></span>
+                <span data-w="date" style="display:none"><input id="lvSchDate" class="trd-in" type="date" style="width:136px"></span>
+                <label class="trd-chk" data-w="schedopt" style="display:none"><input type="checkbox" id="lvSchSession" checked> 仅交易时段</label>
+                <label class="trd-chk" data-w="schedopt" style="display:none"><input type="checkbox" id="lvSchEnabled" checked> 启用</label>
+              </div>
             </div>
-            <div class="trd-row">
-              <button class="trd-btn ghost" id="lvPlanValidate">校验 JSON</button>
-              <button class="trd-btn buy" id="lvPlanGo">创建实盘并执行</button>
-              <button class="trd-btn ghost" id="lvReload">刷新</button>
-              <span class="trd-sub" id="lvRunTip"></span>
+
+            <div class="lv-sec">
+              <div class="lv-sec-h"><b>③</b><span>校验与执行</span><span class="trd-sub" id="lvRunTip"></span></div>
+              <div class="trd-row">
+                <button class="trd-btn ghost" id="lvPlanValidate">校验 JSON</button>
+                <button class="trd-btn buy" id="lvPlanGo">创建实盘并执行</button>
+                <span class="trd-sub" style="margin-left:auto">执行后自动新增一块独立的实盘账本</span>
+              </div>
+              <div class="trd-result" id="lvRunRes"></div>
             </div>
-            <div class="trd-result" id="lvRunRes"></div>
-            <div class="trd-row" style="margin-top:2px">
-              <span class="trd-sub" style="font-weight:600;color:var(--text-primary)">定时任务</span>
-              <span class="trd-sub">按调度重复读取同一份 JSON · 只在该实盘账本执行</span>
+
+            <div class="lv-sec">
+              <div class="lv-sec-h"><b>④</b><span>定时任务</span><span class="trd-sub">按调度重复读取同一份 JSON · 只在该实盘账本执行</span>
+                <button class="trd-btn ghost" id="lvReload" style="margin-left:auto">刷新</button>
+              </div>
+              <div class="trd-scroll" id="lvJobsAll"></div>
             </div>
-            <div class="trd-scroll" id="lvJobsAll"></div>
           </div>
         </div>
 
@@ -3828,7 +3850,14 @@ const ChartManager = {
 
   // ETF净申购
   renderEtfFlow(data) {
-    if (!data || !data.etfs || data.etfs.length === 0) return;
+    if (!data || !data.etfs || data.etfs.length === 0) {
+      const box = document.getElementById('chartEtfFlow');
+      if (box) {
+        try { const old = window.echarts && echarts.getInstanceByDom(box); if (old) old.dispose(); } catch (e) {}
+        box.innerHTML = '<div style="height:100%;min-height:160px;display:flex;align-items:center;justify-content:center;color:#7d8794;font-size:12px">暂无宽基ETF份额数据（数据源 fund_share 无权限）</div>';
+      }
+      return;
+    }
     const chart = this.get('chartEtfFlow');
     const etfs = [...data.etfs].sort((a, b) => b.netShare - a.netShare);
     // 万份转亿份
@@ -4001,7 +4030,8 @@ const App = {
   },
 
   async loadAllData() {
-    const [indices, sentiment, breadth, volume, sectors, distribution, scatter, highLow, turnover, pe, northMoney, margin, etfFlow] = await Promise.all([
+    // 用 allSettled：任一接口 503/超时不应阻塞整页渲染（此前单点失败会导致所有模块空白）
+    const settled = await Promise.allSettled([
       DataService.getIndices(),
       DataService.getSentiment(),
       DataService.getBreadthHistory(),
@@ -4016,11 +4046,18 @@ const App = {
       DataService.getMargin(),
       DataService.getEtfFlow()
     ]);
-    this.state.data = { indices, sentiment, breadth, volume, sectors, distribution, scatter, highLow, turnover, pe, northMoney, margin, etfFlow };
-    // 为每个指数加载K线历史和状态
+    const v = i => (settled[i] && settled[i].status === 'fulfilled') ? settled[i].value : null;
+    const indices = v(0) || [];
+    this.state.data = {
+      indices: indices,
+      sentiment: v(1),
+      breadth: v(2), volume: v(3), sectors: v(4), distribution: v(5), scatter: v(6),
+      highLow: v(7), turnover: v(8), pe: v(9), northMoney: v(10), margin: v(11), etfFlow: v(12)
+    };
+    // 为每个指数加载K线历史和状态（单个失败不影响其他指数与整页）
     for (const idx of indices) {
-      idx.history = await DataService.getIndexKline(idx.code, 120);
-      idx.state = await DataService.getIndexState(idx.code);
+      try { idx.history = await DataService.getIndexKline(idx.code, 120); } catch (e) { idx.history = []; }
+      try { idx.state = await DataService.getIndexState(idx.code); } catch (e) { idx.state = {}; }
     }
   },
 
@@ -4371,6 +4408,16 @@ const App = {
         '<div class="trd-kpis" id="trdKpis_' + sfx + '"></div>' +
         '<div class="trd-card">' +
           '<div class="trd-card-h"><span>累计收益曲线</span><span class="trd-sub" id="trdNavInfo_' + sfx + '"></span></div>' +
+          '<div class="trd-eqbar">' +
+            '<span class="trd-seg" id="trdNavSeg_' + sfx + '">' +
+              '<button class="on" data-v="amount">账户收益金额</button>' +
+              '<button data-v="return">累计收益率</button>' +
+            '</span>' +
+            '<span class="trd-idx" id="trdIdxWrap_' + sfx + '" style="display:none">' +
+              '<button class="trd-btn ghost" data-role="idxbtn">对比指数 ▾</button>' +
+              '<span class="trd-idx-panel" data-role="idxpanel"></span>' +
+            '</span>' +
+          '</div>' +
           '<div class="trd-chart" id="trdNavChart_' + sfx + '"></div>' +
         '</div>' +
         '<div class="trd-card">' +
@@ -4895,8 +4942,8 @@ const App = {
     el.innerHTML = items.map(x => '<div class="trd-kpi"><span>' + x[0] + '</span><b style="' + (x[2] || '') + '">' + x[1] + '</b></div>').join('');
   },
 
-  // 累计收益曲线（Canvas 自绘，离线可用，不依赖 ECharts）
-  trdRenderNav(snaps, mode, base) {
+  // 累计收益曲线（旧 Canvas 版，保留作无 ECharts 时的降级实现）
+  trdRenderNavLegacy(snaps, mode, base) {
     const el = document.getElementById('trdNavChart_' + mode);
     if (!el) return;
     const info = document.getElementById('trdNavInfo_' + mode);
@@ -5004,6 +5051,152 @@ const App = {
       ctx.fillText(label, tx, T + ph + 7);
     }
     ctx.textAlign = 'left';
+  },
+
+  /* 实盘累计收益曲线（新）：金额 / 累计收益率 双视图 + 指数对比，对齐回测权益曲线 */
+  trdRenderNav(snaps, mode, base) {
+    const el = document.getElementById('trdNavChart_' + mode);
+    if (!el) return;
+    this._trdNavCache = this._trdNavCache || {};
+    this._trdNavCache[mode] = { snaps: snaps || [], base: base };
+    if (!this._trdNavIdx) {
+      try { this._trdNavIdx = JSON.parse(localStorage.getItem('ak_trd_idx') || '[]') || []; }
+      catch (e) { this._trdNavIdx = []; }
+    }
+    const view = this._trdNavView || 'amount';
+    const seg = document.getElementById('trdNavSeg_' + mode);
+    if (seg) {
+      if (!seg._bound) {
+        seg._bound = true;
+        seg.querySelectorAll('button').forEach(b => {
+          b.onclick = () => {
+            this._trdNavView = b.getAttribute('data-v');
+            seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+            const w2 = document.getElementById('trdIdxWrap_' + mode);
+            if (w2) w2.style.display = (this._trdNavView === 'return') ? 'inline-block' : 'none';
+            this._redrawTrdNav(mode);
+          };
+        });
+      }
+      seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.getAttribute('data-v') === view));
+    }
+    const wrap = document.getElementById('trdIdxWrap_' + mode);
+    if (wrap) {
+      wrap.style.display = view === 'return' ? 'inline-block' : 'none';
+      if (!wrap._bound) {
+        wrap._bound = true;
+        const btn = wrap.querySelector('[data-role="idxbtn"]');
+        const panel = wrap.querySelector('[data-role="idxpanel"]');
+        if (btn && panel) {
+          btn.onclick = (e) => { e.stopPropagation(); panel.classList.toggle('open'); };
+          document.addEventListener('click', (e) => {
+            if (!panel.contains(e.target) && e.target !== btn) panel.classList.remove('open');
+          });
+        }
+      }
+      this._trdIdxPanel(mode);
+    }
+    this._redrawTrdNav(mode);
+  },
+
+  _trdIdxPanel(mode) {
+    const wrap = document.getElementById('trdIdxWrap_' + mode);
+    const panel = wrap && wrap.querySelector('[data-role="idxpanel"]');
+    if (!panel) return;
+    const sel = this._trdNavIdx || [];
+    panel.innerHTML = (this._btIndices || []).map((x, i) =>
+      '<label><input type="checkbox" data-tc="' + x.code + '"' + (sel.indexOf(x.code) >= 0 ? ' checked' : '') + '>' +
+      '<span style="color:' + this._btIdxColors[i % this._btIdxColors.length] + '">■</span>' + x.name + '</label>'
+    ).join('');
+    panel.querySelectorAll('input[data-tc]').forEach(cb => {
+      cb.onchange = () => {
+        const code = cb.getAttribute('data-tc');
+        let arr = this._trdNavIdx || [];
+        if (cb.checked) { if (arr.indexOf(code) < 0) arr = arr.concat([code]); }
+        else arr = arr.filter(x => x !== code);
+        this._trdNavIdx = arr;
+        localStorage.setItem('ak_trd_idx', JSON.stringify(arr));
+        this._redrawTrdNav(mode);
+      };
+    });
+  },
+
+  async _redrawTrdNav(mode) {
+    const c = (this._trdNavCache || {})[mode];
+    const el = document.getElementById('trdNavChart_' + mode);
+    const info = document.getElementById('trdNavInfo_' + mode);
+    if (!c || !el) return;
+    const snaps = (c.snaps || []).filter(s => s && s.nav != null);
+    if (!snaps.length) {
+      if (this._trdNavInst && this._trdNavInst[mode]) {
+        try { this._trdNavInst[mode].dispose(); } catch (e) {}
+        this._trdNavInst[mode] = null;
+      }
+      el.innerHTML = '<div style="padding:52px 0;text-align:center;color:#7d8794;font-size:12px">暂无净值快照，成交或推进回放后自动记录</div>';
+      if (info) info.textContent = '';
+      return;
+    }
+    const init = Number(c.base) || 500000;
+    const dates = snaps.map(s => String(s.trade_date || '').slice(0, 10));
+    const navs = snaps.map(s => Number(s.nav) || 0);
+    const last = navs[navs.length - 1];
+    const ret = init ? (last - init) / init * 100 : 0;
+    const view = this._trdNavView || 'amount';
+    // 仅 1 个交易日快照时给出提示，并把 Y 轴固定一个小范围，避免出现一排 -0.0%
+    const oneNote = snaps.length === 1 ? ' · 仅 1 个交易日快照，后续运行自动累积' : '';
+    if (!window.echarts) { this.trdRenderNavLegacy(c.snaps, mode, init); return; }
+
+    let series = [], yFmt = v => Number(v).toFixed(0);
+    if (view === 'amount') {
+      if (info) info.textContent = init.toFixed(0) + ' → ' + last.toFixed(0) + ' · 累计 ' + (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%' + oneNote;
+      series = [{ name: '账户权益', data: navs, color: '#e5544b', fill: true, width: 1.8 }];
+    } else {
+      const pct = navs.map(v => init ? (v / init - 1) * 100 : 0);
+      yFmt = v => Number(v).toFixed(1) + '%';
+      const sel = this._trdNavIdx || [];
+      const span = Math.max(1, Math.round((new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000));
+      const days = Math.max(120, Math.min(1500, Math.ceil(span * 0.78) + 80));
+      const raw = await Promise.all(sel.map(code =>
+        this.trdFetch('/index/' + code + '/kline?days=' + days).then(r => (Array.isArray(r) ? r : []))));
+      series = [{ name: '实盘账户', data: pct, color: '#e5544b', fill: false, width: 1.8 }];
+      sel.forEach((code, i) => {
+        const nm = ((this._btIndices || []).find(x => x.code === code) || {}).name || code;
+        const v = this._btAlignIndex(raw[i], dates);
+        if (v) series.push({ name: nm, data: v, color: this._btIdxColors[i % this._btIdxColors.length], fill: false, width: 1.2 });
+      });
+      if (info) info.textContent = '累计收益率 · 实盘 ' + (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%' + oneNote + (sel.length ? ' · 对比 ' + sel.length + ' 个指数' : ' · 可在右侧选择对比指数');
+    }
+    try {
+      if (!this._trdNavInst) this._trdNavInst = {};
+      let inst = this._trdNavInst[mode];
+      if (!inst || inst.getDom() !== el) {
+        if (inst) { try { inst.dispose(); } catch (e) {} }
+        inst = this._trdNavInst[mode] = window.echarts.init(el);
+      }
+      inst.setOption({
+        animation: false,
+        legend: view === 'return' ? { data: series.map(s => s.name), top: 0, type: 'scroll', textStyle: { color: '#b2b5be', fontSize: 11 } } : { show: false },
+        grid: { left: 58, right: 18, top: view === 'return' ? 30 : 16, bottom: 30 },
+        tooltip: { trigger: 'axis', backgroundColor: 'rgba(20,26,36,.95)', borderColor: '#2c3542', textStyle: { color: '#dfe4ea', fontSize: 12 }, valueFormatter: yFmt },
+        xAxis: { type: 'category', data: dates, boundaryGap: false, axisLine: { lineStyle: { color: '#2c3542' } }, axisTick: { show: false }, axisLabel: { color: '#8c96a5', fontSize: 10, hideOverlap: true } },
+        yAxis: Object.assign({
+          type: 'value', scale: true, axisLine: { show: false }, axisTick: { show: false },
+          axisLabel: { color: '#8c96a5', fontSize: 10, formatter: yFmt },
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,.06)' } }
+        }, snaps.length === 1
+          ? (view === 'return' ? { min: -0.5, max: 0.5 } : { min: init * 0.995, max: init * 1.005 })
+          : {}),
+        dataZoom: [{ type: 'inside' }],
+        series: series.map(s => ({
+          name: s.name, type: 'line', data: s.data, symbol: 'none',
+          lineStyle: { width: s.width, color: s.color },
+          itemStyle: { color: s.color },
+          areaStyle: s.fill ? { color: 'rgba(229,84,75,.12)' } : undefined
+        }))
+      }, true);
+    } catch (e) {
+      this.trdRenderNavLegacy(c.snaps, mode, init);
+    }
   },
 
   trdRenderPos(pos, conds, mode) {
@@ -5255,12 +5448,17 @@ const App = {
   renderMarketPage() {
     this.renderTopbarTicker();
     this.renderIndexGrid();
+    // 数据尚未返回时只渲染占位，避免 undefined 抛错导致整页后续模块全部空白
+    if (!((this.state.data || {}).sentiment)) return;
     this.renderBreadthSection();
   },
 
   renderTopbarTicker() {
-    const indices = this.state.data.indices.slice(0, 5);
-    document.getElementById('topbarTicker').innerHTML = indices.map(idx => `
+    const indices = ((this.state.data || {}).indices || []).slice(0, 5);
+    const el = document.getElementById('topbarTicker');
+    if (!el) return;
+    if (!indices.length) { el.innerHTML = '<div class="ticker-item"><span class="ticker-name">指数加载中…</span></div>'; return; }
+    el.innerHTML = indices.map(idx => `
       <div class="ticker-item">
         <span class="ticker-name">${idx.name}</span>
         <span class="ticker-value">${Utils.formatNumber(idx.price)}</span>
@@ -5272,7 +5470,12 @@ const App = {
   renderIndexGrid() {
     const grid = document.getElementById('indexGrid');
     if (!grid) return;
-    grid.innerHTML = this.state.data.indices.map(idx => {
+    const list = ((this.state.data || {}).indices || []);
+    if (!list.length) {
+      grid.innerHTML = '<div style="padding:24px;text-align:center;color:#7d8794;font-size:12px">指数数据加载中…</div>';
+      return;
+    }
+    grid.innerHTML = list.map(idx => {
       const st = idx.state || {};
       const stateClass = st.divergence ? 'state-divergence' :
         st.priceState === '上涨' ? 'state-up' : st.priceState === '下跌' ? 'state-down' : 'state-flat';
@@ -5357,9 +5560,10 @@ const App = {
   },
 
   renderBreadthSection() {
-    const s = this.state.data.sentiment;
-    const hl = this.state.data.highLow;
-    const tv = this.state.data.turnover;
+    const s = (this.state.data || {}).sentiment;
+    const hl = (this.state.data || {}).highLow;
+    const tv = (this.state.data || {}).turnover;
+    if (!s) return;
     // 涨跌家数
     document.getElementById('adUp').textContent = Utils.formatInt(s.upCount);
     document.getElementById('adFlat').textContent = Utils.formatInt(s.flatCount);
@@ -5403,9 +5607,9 @@ const App = {
       ChartManager.renderHighLowChart(hl);
     }
     // ADL
-    ChartManager.renderADL(this.state.data.breadth);
+    if (this.state.data.breadth) ChartManager.renderADL(this.state.data.breadth);
     // 涨跌分布
-    ChartManager.renderDistributionNew(this.state.data.distribution);
+    if (this.state.data.distribution) ChartManager.renderDistributionNew(this.state.data.distribution);
     // 换手率
     if (tv) {
       document.getElementById('turnoverValue').textContent = tv.turnover + '%';
@@ -5418,7 +5622,7 @@ const App = {
       ChartManager.renderTurnoverHist(tv.turnover, tv.percentile);
     }
     // 成交额趋势
-    ChartManager.renderVolumeTrend(this.state.data.volume);
+    if (this.state.data.volume) ChartManager.renderVolumeTrend(this.state.data.volume);
 
     // ===== 资金与估值区域 =====
     const pe = this.state.data.pe;
@@ -5847,16 +6051,10 @@ const App = {
     for (let rank = 0; rank < data.matrix.length; rank++) {
       html += `<tr><td style="padding:6px;border:1px solid var(--border-color);text-align:center;font-weight:600;color:var(--text-secondary)">第${rank+1}名</td>`;
       
-      // 日期倒序（新→旧）：涨幅矩阵同一排名行内同板块只显示一次；其他指标每日完整显示前20名
-      const colSeen = {};
+      // 日期倒序（新→旧）：matrix 每格只对应一个板块，无需去重（此前 colSeen 会误把不同日期重复上榜的同一板块显示为 -）
       for (let colIdx = data.dates.length - 1; colIdx >= 0; colIdx--) {
         const cell = data.matrix[rank][colIdx];
         if (cell) {
-          if (metric === 'change_pct' && colSeen[cell.code]) {
-            html += '<td style="padding:4px;border:1px solid var(--border-color);text-align:center;color:#444">-</td>';
-            continue;
-          }
-          colSeen[cell.code] = 1;
           const numVal = (cell.value !== undefined && cell.value !== null) ? cell.value : cell.changePct;
           const color = numVal >= 0 ? '#f23645' : '#2962ff';
           const cellDate = data.dates[colIdx];  // 直接用原dates索引，不用反转后的
@@ -6313,16 +6511,10 @@ const App = {
     for (let rank = 0; rank < data.matrix.length; rank++) {
       html += `<tr><td style="padding:6px;border:1px solid var(--border-color);text-align:center;font-weight:600;color:var(--text-secondary)">第${rank+1}名</td>`;
       
-      // 日期倒序（新→旧），同一列（同一天）重复板块只保留首次（排名靠前）出现
-      const colSeen = {};
+      // 日期倒序（新→旧），每格对应单一板块，直接渲染
       for (let colIdx = data.dates.length - 1; colIdx >= 0; colIdx--) {
         const cell = data.matrix[rank][colIdx];
         if (cell) {
-          if (colSeen[cell.code]) {
-            html += '<td style="padding:4px;border:1px solid var(--border-color);text-align:center;color:#444">-</td>';
-            continue;
-          }
-          colSeen[cell.code] = 1;
           const color = cell.changePct >= 0 ? '#f23645' : '#2962ff';
           const cellDate = data.dates[colIdx];  // 直接用原dates索引
           html += `<td style="padding:4px;border:1px solid var(--border-color);text-align:center;background:${color}20;cursor:pointer" onclick="App.loadConcDetail('${cell.code}', '${cell.name}', '${cellDate}')">
@@ -8189,7 +8381,7 @@ document.addEventListener('DOMContentLoaded', () => App.init());
   }
 })();
 </script>
-<script src="vendor/klinecharts/stock-kline.js?v=225"></script>
+<script src="vendor/klinecharts/stock-kline.js?v=226"></script>
 
 </body>
 </html>

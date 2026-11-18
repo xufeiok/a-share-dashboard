@@ -104,6 +104,26 @@
       });
     }
   });
+  /* ADX（Wilder DMI：ADX + +DI + -DI，后端桥计算 ind.adx） */
+  klinecharts.registerIndicator({
+    name: 'ADX', shortName: 'ADX', series: 'line', calcParams: [14],
+    figures: [
+      { key: 'adx', title: 'ADX', type: 'line', styles: () => ({ color: YELLOW }) },
+      { key: 'pdi', title: '+DI', type: 'line', styles: () => ({ color: '#f23645' }) },
+      { key: 'mdi', title: '-DI', type: 'line', styles: () => ({ color: '#089981' }) }
+    ],
+    calc: function (dataList) {
+      const a = getInd().adx || {};
+      const adx = a.adx || [], pdi = a.pdi || [], mdi = a.mdi || [];
+      return (dataList || []).map((_, i) => {
+        const o = {};
+        if (adx[i] != null) o.adx = adx[i];
+        if (pdi[i] != null) o.pdi = pdi[i];
+        if (mdi[i] != null) o.mdi = mdi[i];
+        return o;
+      });
+    }
+  });
   klinecharts.registerIndicator({
     name: 'BBTrendScore', shortName: 'BBTrendScore', series: 'line', calcParams: [50, 2, 5, 3, 60, 0.5, 0.3, 0.2],
     figures: [{ key: 'score', title: 'BBTrendScore', type: 'line', styles: () => ({ color: BLUE }) }],
@@ -146,13 +166,13 @@
     name: 'PRTrend', shortName: 'PRTrend', series: 'line', calcParams: [5, 20, 60],
     figures: [
       { key: 'hi_a', title: '上轨1', type: 'line', styles: () => ({ color: '#ff9800', size: 2 }) },
-      { key: 'lo_a', title: '下轨1', type: 'line', styles: () => ({ color: '#ff9800', size: 1, style: 'dashed', dashedValue: [4, 3] }) },
+      { key: 'lo_a', title: '下轨1', type: 'line', styles: () => ({ color: '#ff9800', size: 1.5 }) },
       { key: 'cx_a', title: '交点1', type: 'circle', styles: () => ({ color: '#ff9800' }) },
       { key: 'hi_b', title: '上轨2', type: 'line', styles: () => ({ color: '#42a5f5', size: 2 }) },
-      { key: 'lo_b', title: '下轨2', type: 'line', styles: () => ({ color: '#42a5f5', size: 1, style: 'dashed', dashedValue: [4, 3] }) },
+      { key: 'lo_b', title: '下轨2', type: 'line', styles: () => ({ color: '#42a5f5', size: 1.5 }) },
       { key: 'cx_b', title: '交点2', type: 'circle', styles: () => ({ color: '#42a5f5' }) },
       { key: 'hi_c', title: '上轨3', type: 'line', styles: () => ({ color: '#ab47bc', size: 2 }) },
-      { key: 'lo_c', title: '下轨3', type: 'line', styles: () => ({ color: '#ab47bc', size: 1, style: 'dashed', dashedValue: [4, 3] }) },
+      { key: 'lo_c', title: '下轨3', type: 'line', styles: () => ({ color: '#ab47bc', size: 1.5 }) },
       { key: 'cx_c', title: '交点3', type: 'circle', styles: () => ({ color: '#ab47bc' }) }
     ],
     calc: function (dataList) {
@@ -507,7 +527,7 @@
 
   /* 指标名映射：checkbox data-i → KLineChart indicator name */
   const MAIN_IND = { ma: 'MA', ema: 'EMA', sar: 'SAR', boll: 'BOLL', st: 'SuperTrend', vidya: 'VolumeDynamicVIDYA', uma: 'UMA', prt: 'PRTrend' };
-  const SUB_IND = { vol: 'VOL', macd: 'EnhancedMACD', macd0: 'MACD', kdj: 'X_KDJ', rsi: 'X_RSI', wr: 'WR', mfi: 'MFI', obv: 'X_OBV', cci: 'CCI', dmi: 'DMI', trix: 'TRIX', boll2: 'BOLL', xtr: 'X_XTR', bb: 'BBTrendScore' };
+  const SUB_IND = { vol: 'VOL', macd: 'EnhancedMACD', macd0: 'MACD', kdj: 'X_KDJ', rsi: 'X_RSI', wr: 'WR', mfi: 'MFI', obv: 'X_OBV', cci: 'CCI', dmi: 'DMI', adx: 'ADX', trix: 'TRIX', boll2: 'BOLL', xtr: 'X_XTR', bb: 'BBTrendScore' };
   /* 前端 calcParams ↔ 后端桥参数键名（顺序一一对应，与 bt_indicator_bridge.py 参数键名一致）；
    * 设置面板保存时按此映射转成后端键名请求 /api/stock/indicators 重算 */
   const PARAM_MAP = {
@@ -516,6 +536,7 @@
     UMA: ['ma_periods'],
     PRTrend: ['prt_periods'], // 单个后端参数，弹窗多行数值以逗号拼成一个周期串
     X_XTR: ['xtr_period', 'xtr_ma', 'xtr_band', 'xtr_mult'],
+    ADX: ['adx_period'],
     BBTrendScore: ['bb_period', 'bb_dev', 'roc_period', 'acc_period', 'roll_window', 'w_nbbw', 'w_roc', 'w_acc'],
     EnhancedMACD: ['macd_fast', 'macd_slow', 'macd_signal'],
     X_RSI: ['rsi_length', 'rsi_ma_length'],
@@ -524,7 +545,7 @@
   };
   /* 指标默认参数（KLineChart calcParams）；bt 版与后端桥默认值一致 */
   const MAIN_PARAMS = { MA: [5, 10, 20, 60], EMA: [12, 26], SAR: [2, 2, 20], BOLL: [20, 2], SuperTrend: [10, 3], VolumeDynamicVIDYA: [10, 20, 200, 15, 2], UMA: [20, 50, 100], PRTrend: [5, 20, 60] };
-  const SUB_PARAMS = { VOL: [5, 10], EnhancedMACD: [12, 26, 9], X_KDJ: [9, 3], X_RSI: [14, 14], WR: [6, 10, 15], MFI: [14], X_OBV: [20], CCI: [14], DMI: [14, 6], TRIX: [12, 9], BOLL: [20, 2], X_XTR: [14, 9, 20, 2], BBTrendScore: [10, 0.5] };
+  const SUB_PARAMS = { VOL: [5, 10], EnhancedMACD: [12, 26, 9], X_KDJ: [9, 3], X_RSI: [14, 14], WR: [6, 10, 15], MFI: [14], X_OBV: [20], CCI: [14], DMI: [14, 6], TRIX: [12, 9], BOLL: [20, 2], X_XTR: [14, 9, 20, 2], ADX: [14], BBTrendScore: [10, 0.5] };
 
   /* 画线工具（preview/pro.klinecharts.com 左侧列表风格）：
    * 分组：线型 / 几何图形 / 斐波那契 / 江恩箱 / 形态 / 标注；
@@ -792,7 +813,7 @@
       chart.createIndicator({ name: n, paneId: 'candle_pane', calcParams: cp }, hasMain);
     });
     // 副图自定义指标（独立 pane；bt 版覆盖内置 MACD/RSI/KDJ/OBV，一并重建）
-    ['X_XTR', 'BBTrendScore', 'EnhancedMACD', 'X_RSI', 'X_KDJ', 'X_OBV'].forEach(n => {
+    ['X_XTR', 'ADX', 'BBTrendScore', 'EnhancedMACD', 'X_RSI', 'X_KDJ', 'X_OBV'].forEach(n => {
       if (!(S.subs || []).some(k => SUB_IND[k] === n)) return;
       const cur = chart.getIndicators({ name: n })[0];
       if (!cur) return;
@@ -1180,6 +1201,7 @@
       out.BOLL2 = { vals: [['上轨', m == null ? null : m + (bp[1] || 2) * s, L[0]], ['中轨', m, L[1]], ['下轨', m == null ? null : m - (bp[1] || 2) * s, L[2]]] };
     }
     if (subs.includes('xtr')) { const x = ind.xtr || {}; out.X_XTR = { vals: [['X_XTR', lastArr(x, 'xtr', idx), '#2962ff'], ['X_XTR_MA', lastArr(x, 'xtr_ma', idx), '#f0b90b']] }; }
+    if (subs.includes('adx')) { const a = ind.adx || {}; out.ADX = { vals: [['ADX', lastArr(a, 'adx', idx), '#f0b90b'], ['+DI', lastArr(a, 'pdi', idx), '#f23645'], ['-DI', lastArr(a, 'mdi', idx), '#089981']] }; }
     if (subs.includes('bb')) out.BBTrendScore = { vals: [['BB', N('bb_score', 'score'), '#2962ff']] };
     return out;
   }
@@ -1309,11 +1331,22 @@
     // 一个后端参数对应多个前端 calcParam（如 PRTrend 的 prt_periods=5,20,60）：
     // 弹窗仍按多行数值编辑，保存时逗号拼成一个参数值
     const joinOne = (PARAM_MAP[inst.name] || []).length === 1 && params.length > 1;
+    /* PRTrend 额外提供上/下轨价格类型选择：基础价 + 派生价，与后端 VALID_FIELDS 一致 */
+    const isPrt = inst.name === 'PRTrend';
+    const PRT_OPTS = [['high', '最高价 High'], ['low', '最低价 Low'], ['open', '开盘价 Open'],
+      ['close', '收盘价 Close'], ['hl2', '中价 (H+L)/2'], ['hlc3', '典型价 (H+L+C)/3'],
+      ['ohlc4', '均价 (O+H+L+C)/4']];
+    const prtSel = (key, label, def) => '<div class="sk-modal-row"><label title="' + key + '">' + label + '</label>' +
+      '<select id="' + (key === 'prt_upper_field' ? 'skPrtUp' : 'skPrtLo') + '" title="' + key + '">' +
+      PRT_OPTS.map(o => '<option value="' + o[0] + '"' + ((S.indParams[key] || def) === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
+      '</select></div>';
     $('skIndModalTitle').textContent = short + ' 参数设置';
     $('skIndModalBody').innerHTML = params.map((p, i) =>
       `<div class="sk-modal-row"><label title="${keys[i]}">${joinOne ? keys[0] + '(' + (i + 1) + ')' : keys[i]}</label>` +
       `<input type="number" step="any" value="${p}" data-i="${i}"></div>`
-    ).join('') + '<button class="sk-modal-ok" id="skIndModalOk">确定</button>';
+    ).join('')
+      + (isPrt ? prtSel('prt_upper_field', '上轨价格', 'high') + prtSel('prt_lower_field', '下轨价格', 'low') : '')
+      + '<button class="sk-modal-ok" id="skIndModalOk">确定</button>';
     const ok = $('skIndModalOk');
     const confirm = () => {
       const vals = Array.from($('skIndModalBody').querySelectorAll('input')).map(i => parseFloat(i.value)).filter(v => isFinite(v));
@@ -1327,6 +1360,14 @@
             kv[keys[0]] = vals.join(',');
           } else {
             vals.forEach((v, i) => { kv[keys[i]] = v; });
+          }
+          if (isPrt) {
+            const upSel = $('skPrtUp'), loSel = $('skPrtLo');
+            if (upSel && loSel) {
+              // 允许上下轨选同一价格类型（两条回归线重合），不做拦截
+              kv.prt_upper_field = upSel.value;
+              kv.prt_lower_field = loSel.value;
+            }
           }
           Object.keys(kv).forEach(k => { if (kv[k] == null) delete kv[k]; });
           S.indParams = Object.assign({}, S.indParams, kv);

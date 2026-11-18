@@ -46,6 +46,25 @@ def _tr(high, low, close):
         tr.iloc[0] = (high.iloc[0] - low.iloc[0])
     return tr
 
+def _wilder(s, n):
+    """Wilder 平滑（与 backtrader SmoothedMovingAverage 对齐）：
+    前 n-1 根 NaN，第 n 根取前 n 根均值作种子，其后 prev*(n-1)+x)/n"""
+    n = int(n)
+    s = pd.Series(s, dtype=float)
+    out = pd.Series(np.nan, index=s.index)
+    vals = s.to_numpy(dtype=float)
+    if len(vals) < n or n <= 0:
+        return out
+    prev = np.nanmean(vals[:n])
+    out.iloc[n - 1] = prev
+    for i in range(n, len(vals)):
+        v = vals[i]
+        if np.isnan(v):
+            v = 0.0
+        prev = (prev * (n - 1) + v) / n
+        out.iloc[i] = prev
+    return out
+
 # ==================== UMA 通用均线 ====================
 def calc_uma(close, ma_type='EMA', periods=(20, 50, 100)):
     ma_map = {'SMA': _sma, 'EMA': _ema, 'WMA': _wma, 'RMA': _rma, 'HMA': _hma}
@@ -386,6 +405,31 @@ def calc_xtr(df, xtr_period=14, ma_length=9, band_period=20, band_mult=2.0):
     bot = basis - std * band_mult
     return {'xtr': xtr, 'xtr_ma': xtr_ma, 'top': top, 'bot': bot}
 
+# ==================== ADX（Wilder DMI/ADX） ====================
+def calc_adx(df, period=14):
+    """标准 Wilder ADX：+DI / -DI / DX / ADX
+    up = H-H(-1)，dn = L(-1)-L；+DM 取 up>dn 且 up>0，-DM 取 dn>up 且 dn>0
+    +DI = 100*Wilder(+DM)/ATR，-DI = 100*Wilder(-DM)/ATR
+    DX = 100*|+DI - -DI|/(+DI + -DI)，ADX = Wilder(DX)
+    """
+    h, l, c = df['high'], df['low'], df['close']
+    n = max(1, int(period))
+    up_move = h.diff()
+    down_move = -l.diff()
+    plus_dm = pd.Series(np.where((up_move > down_move) & (up_move > 0), up_move, 0.0), index=h.index)
+    minus_dm = pd.Series(np.where((down_move > up_move) & (down_move > 0), down_move, 0.0), index=h.index)
+    tr = _tr(h, l, c)
+    atr = _wilder(tr, n)
+    pdm = _wilder(plus_dm, n)
+    mdm = _wilder(minus_dm, n)
+    safe_atr = atr.where(atr != 0, np.nan)
+    pdi = 100.0 * pdm / safe_atr
+    mdi = 100.0 * mdm / safe_atr
+    denom = (pdi + mdi).where((pdi + mdi) != 0, np.nan)
+    dx = 100.0 * (pdi - mdi).abs() / denom
+    adx = _wilder(dx.fillna(0.0), n)
+    return {'adx': adx, 'pdi': pdi, 'mdi': mdi, 'dx': dx}
+
 # ==================== BBTrendScore ====================
 def calc_bb_score(close, bb_period=50, bb_dev=2.0, roc_period=5, acc_period=3, roll_window=60,
                   w_nbbw=0.5, w_roc=0.3, w_acc=0.2):
@@ -415,8 +459,31 @@ def calc_bb_score(close, bb_period=50, bb_dev=2.0, roc_period=5, acc_period=3, r
 # 不用像 bt 版那样逐根回溯。
 _PRT_COLORS = {'a': '#ff9800', 'b': '#42a5f5', 'c': '#ab47bc'}
 _PRT_SLOTS = ('a', 'b', 'c')
-_PRT_FIELDS = ('high', 'low', 'open', 'close')
+_PRT_FIELDS = ('high', 'low', 'open', 'close', 'hl2', 'hlc3', 'ohlc4')
 _PRT_PRESETS = {'HL': ('high', 'low'), 'OC': ('open', 'close')}
+
+
+def _prt_field_array(df, name):
+    """取 PRTrend 的价格序列，支持基础价与派生价（hl2/hlc3/ohlc4）"""
+    h = df['high'].to_numpy(dtype=float)
+    l = df['low'].to_numpy(dtype=float)
+    o = df['open'].to_numpy(dtype=float)
+    c = df['close'].to_numpy(dtype=float)
+    if name == 'high':
+        return h
+    if name == 'low':
+        return l
+    if name == 'open':
+        return o
+    if name == 'close':
+        return c
+    if name == 'hl2':
+        return (h + l) / 2.0
+    if name == 'hlc3':
+        return (h + l + c) / 3.0
+    if name == 'ohlc4':
+        return (o + h + l + c) / 4.0
+    return None
 
 
 def calc_prtrend(df, periods=(5, 20, 60), field_pair='HL', upper_field=None, lower_field=None,
@@ -432,7 +499,8 @@ def calc_prtrend(df, periods=(5, 20, 60), field_pair='HL', upper_field=None, low
         up = up if up is not None else pu
         lo = lo if lo is not None else pl
     up, lo = str(up).lower(), str(lo).lower()
-    if up not in _PRT_FIELDS or lo not in _PRT_FIELDS or up == lo:
+    # 允许上下轨选择同一价格类型（此时两条回归线重合），仅白名单外的字段才回退
+    if up not in _PRT_FIELDS or lo not in _PRT_FIELDS:
         up, lo = 'high', 'low'
 
     # 周期归一化：整数、≥2、去重、最多 3 个
@@ -458,8 +526,13 @@ def calc_prtrend(df, periods=(5, 20, 60), field_pair='HL', upper_field=None, low
     if n == 0:
         return out
 
-    up_arr = df[up].to_numpy(dtype=float)
-    lo_arr = df[lo].to_numpy(dtype=float)
+    up_arr = _prt_field_array(df, up)
+    lo_arr = _prt_field_array(df, lo)
+    if up_arr is None or lo_arr is None:
+        up, lo = 'high', 'low'
+        out['upper'], out['lower'] = up, lo
+        up_arr = _prt_field_array(df, up)
+        lo_arr = _prt_field_array(df, lo)
     for s, period in zip(_PRT_SLOTS, periods):
         if n < period:
             continue
@@ -513,11 +586,13 @@ def calc_indicators(df, params=None):
     out['kdj'] = calc_kdj(df, p.get('kdj_period', 9), p.get('kdj_signal', 3))
     out['obv'] = calc_obv(df, p.get('obv_ma', 20))
     out['xtr'] = calc_xtr(df, p.get('xtr_period', 14), p.get('xtr_ma', 9), p.get('xtr_band', 20), p.get('xtr_mult', 2.0))
+    out['adx'] = calc_adx(df, p.get('adx_period', 14))
     out['bb_score'] = calc_bb_score(close)
 
     # 主图：周期回归趋势线（PRTrend，与 indicators/PRTrend.py 同算法）
     out['prtrend'] = calc_prtrend(
         df, p.get('prt_periods', (5, 20, 60)), p.get('prt_field_pair', 'HL'),
+        upper_field=p.get('prt_upper_field'), lower_field=p.get('prt_lower_field'),
         show_cross=p.get('prt_show_cross', True), extend_forward=p.get('prt_extend_forward', 0))
 
     # 成交量均线（前端用）
