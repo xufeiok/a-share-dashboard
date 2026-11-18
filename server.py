@@ -4776,20 +4776,24 @@ def _bt_path(name):
 
 
 def _bt_norm_code(c):
-    """把 600036 / 600036.SH 统一成 ts_code 形式，便于查中文名与匹配 K 线。"""
+    """把 600036 / 600036.SH 统一成 ts_code 形式，便于查中文名与匹配 K 线。
+    SuperPlot 的 strategy_data.code 存的是策略源码，不是标的代码，长度异常时直接丢弃。"""
     c = str(c or '').strip().upper()
-    if not c or '.' in c:
-        return c
+    if not c:
+        return ''
+    if '.' in c:
+        return c if len(c) <= 12 else ''
     if len(c) == 6 and c.isdigit():
         return c + ('.SH' if c[0] in ('6', '9') else '.SZ')
-    return c
+    if len(c) <= 8 and c.isdigit():
+        return c
+    return ''
 
 
 def _bt_codes(d):
     """提取回测结果涉及的股票列表（去重保序）。多标的文件从每笔委托取 code，
-    单标的文件回退到顶层 code / strategy_data.code。"""
-    s = d.get('strategy_data') or {}
-    fb = _bt_norm_code(d.get('code')) or _bt_norm_code(s.get('code'))
+    单标的文件回退到 JSON 顶层 code（strategy_data.code 是策略源码，不能用）。"""
+    fb = _bt_norm_code(d.get('code'))
     seen, out = set(), []
     for o in (((d.get('orders_data') or {}).get('orders')) or []):
         c = _bt_norm_code(o.get('code') or o.get('ts_code') or o.get('symbol') or fb)
