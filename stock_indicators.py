@@ -408,13 +408,90 @@ def calc_bb_score(close, bb_period=50, bb_dev=2.0, roc_period=5, acc_period=3, r
     score = score.clip(0, 100)
     return {'score': score}
 
+# ==================== 周期回归趋势线 PRTrend ====================
+# 与 indicators/PRTrend.py（Backtrader 版）同一算法：以最后一根 K 线为基准，取最近 N 根
+# 上/下轨字段各做一元线性回归，把拟合直线回填该窗口，并解析求两条直线的交点。
+# 网页只需要「最新窗口」这一组线段（旧窗口会被新窗口覆盖），所以这里直接算最后 N 根，
+# 不用像 bt 版那样逐根回溯。
+_PRT_COLORS = {'a': '#ff9800', 'b': '#42a5f5', 'c': '#ab47bc'}
+_PRT_SLOTS = ('a', 'b', 'c')
+_PRT_FIELDS = ('high', 'low', 'open', 'close')
+_PRT_PRESETS = {'HL': ('high', 'low'), 'OC': ('open', 'close')}
+
+
+def calc_prtrend(df, periods=(5, 20, 60), field_pair='HL', upper_field=None, lower_field=None,
+                 show_cross=True, extend_forward=0):
+    """多周期双字段回归趋势线 + 交点；返回扁平序列，键名与 bt_indicator_bridge 输出一致"""
+    n = len(df)
+    up, lo = upper_field, lower_field
+    if up is None or lo is None:
+        pair = str(field_pair or 'HL').upper()
+        if pair not in _PRT_PRESETS:
+            pair = 'HL'
+        pu, pl = _PRT_PRESETS[pair]
+        up = up if up is not None else pu
+        lo = lo if lo is not None else pl
+    up, lo = str(up).lower(), str(lo).lower()
+    if up not in _PRT_FIELDS or lo not in _PRT_FIELDS or up == lo:
+        up, lo = 'high', 'low'
+
+    # 周期归一化：整数、≥2、去重、最多 3 个
+    try:
+        seq = list(periods) if isinstance(periods, (list, tuple)) else [periods]
+        ps = [int(float(x)) for x in seq]
+    except (TypeError, ValueError):
+        ps = []
+    norm = []
+    for x in ps:
+        if x >= 2 and x not in norm:
+            norm.append(x)
+    periods = norm[:3] or [5, 20, 60]
+
+    out = {'upper': up, 'lower': lo,
+           'periods': [int(x) for x in periods],
+           'colors': [_PRT_COLORS[s] for s in _PRT_SLOTS[:len(periods)]]}
+    for s in _PRT_SLOTS:
+        out['hi_' + s] = np.full(n, np.nan)
+        out['lo_' + s] = np.full(n, np.nan)
+        out['cx_' + s] = np.full(n, np.nan)
+
+    if n == 0:
+        return out
+
+    up_arr = df[up].to_numpy(dtype=float)
+    lo_arr = df[lo].to_numpy(dtype=float)
+    for s, period in zip(_PRT_SLOTS, periods):
+        if n < period:
+            continue
+        y1 = up_arr[n - period:]
+        y2 = lo_arr[n - period:]
+        if np.isnan(y1).any() or np.isnan(y2).any():
+            continue
+        x = np.arange(-(period - 1), 1, dtype=float)
+        slope_u, int_u = np.polyfit(x, y1, 1)
+        slope_l, int_l = np.polyfit(x, y2, 1)
+        out['hi_' + s][n - period:] = slope_u * x + int_u
+        out['lo_' + s][n - period:] = slope_l * x + int_l
+        if not show_cross or abs(slope_u - slope_l) < 1e-12:
+            continue
+        x_cross = (int_l - int_u) / (slope_u - slope_l)
+        y_cross = slope_u * x_cross + int_u
+        if x_cross < -(period - 1) or x_cross > max(0.0, float(extend_forward)) or not np.isfinite(y_cross):
+            continue
+        idx = int(round(x_cross))
+        if idx > 0:
+            continue
+        out['cx_' + s][(n - 1) + idx] = y_cross
+    return out
+
+
 # ==================== 统一入口 ====================
 def calc_indicators(df, params=None):
     """
     df 列：trade_date, open, high, low, close, vol, amount（升序）
     params: dict，可覆盖默认参数
     返回 dict：
-      uma, supertrend, vidya, macd, rsi, kdj, obv, xtr, bb_score
+      uma, supertrend, vidya, macd, rsi, kdj, obv, xtr, bb_score, prtrend
     """
     p = params or {}
     n = len(df)
@@ -437,6 +514,11 @@ def calc_indicators(df, params=None):
     out['obv'] = calc_obv(df, p.get('obv_ma', 20))
     out['xtr'] = calc_xtr(df, p.get('xtr_period', 14), p.get('xtr_ma', 9), p.get('xtr_band', 20), p.get('xtr_mult', 2.0))
     out['bb_score'] = calc_bb_score(close)
+
+    # 主图：周期回归趋势线（PRTrend，与 indicators/PRTrend.py 同算法）
+    out['prtrend'] = calc_prtrend(
+        df, p.get('prt_periods', (5, 20, 60)), p.get('prt_field_pair', 'HL'),
+        show_cross=p.get('prt_show_cross', True), extend_forward=p.get('prt_extend_forward', 0))
 
     # 成交量均线（前端用）
     out['vol_ma5'] = _sma(df['vol'], 5)

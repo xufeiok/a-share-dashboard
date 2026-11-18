@@ -4,19 +4,28 @@
 设计要求：
 - 回测（backtest）与实盘（live）各自一个库文件，资金/持仓/委托/条件单/净值完全隔离，
   同一只股票可以同时出现在两个账本里而互不影响。
-- 模式通过线程局部变量切换（use_mode），Flask 每个请求一线程，无需给所有函数加参数。
+- 实盘支持多账户：每个实盘账户一个独立库文件（live_accts/<id>.db），
+  主账户沿用原 sim_trading_live.db，账户清单记在 live_accounts.json。
+- 模式/账户通过线程局部变量切换（use_mode / use_acct），Flask 每个请求一线程，
+  无需给所有函数加参数。
 - 所有写操作走同一个 RLock + 短事务，避免 Flask threaded 下的并发覆盖。
 - 金额一律保留 2 位，股数一律整数。
 """
 
+import json
 import os
+import re
 import sqlite3
 import threading
 from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'sim_trading.db')          # backtest（历史数据在此）
-DB_PATH_LIVE = os.path.join(BASE_DIR, 'sim_trading_live.db')  # live
+DB_PATH_LIVE = os.path.join(BASE_DIR, 'sim_trading_live.db')  # live 主账户
+ACCT_DIR = os.path.join(BASE_DIR, 'live_accts')               # live 其他账户
+ACCT_REG = os.path.join(BASE_DIR, 'live_accounts.json')       # 账户清单
+DEFAULT_ACCT = 'default'
+DEFAULT_ACCT_NAME = '实盘主账户'
 
 MODES = ('backtest', 'live')
 _DEFAULT_MODE = 'backtest'
@@ -149,8 +158,127 @@ def current_mode():
     return getattr(_TL, 'mode', _DEFAULT_MODE)
 
 
-def db_path(mode=None):
-    return DB_PATH_LIVE if (mode or current_mode()) == 'live' else DB_PATH
+def _norm_acct(acct):
+    """账户 id 只保留字母数字下划线，避免拼路径/拼 DOM id 出问题。"""
+    a = re.sub(r'[^0-9a-zA-Z_]', '', str(acct or '').strip())
+    return a or DEFAULT_ACCT
+
+
+def use_acct(acct):
+    """切换当前线程使用的实盘账户（仅 live 模式生效），返回生效的账户 id。"""
+    a = _norm_acct(acct)
+    _TL.acct = a
+    return a
+
+
+def current_acct():
+    return getattr(_TL, 'acct', DEFAULT_ACCT)
+
+
+def db_path(mode=None, acct=None):
+    if (mode or current_mode()) != 'live':
+        return DB_PATH
+    a = _norm_acct(acct) if acct else current_acct()
+    if a == DEFAULT_ACCT:
+        return DB_PATH_LIVE
+    os.makedirs(ACCT_DIR, exist_ok=True)
+    return os.path.join(ACCT_DIR, a + '.db')
+
+
+# ---------------- 实盘账户清单 ----------------
+def _reg_read():
+    """读账户清单；老版本没有清单时补一个主账户。"""
+    raw = {}
+    try:
+        with open(ACCT_REG, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+    except Exception:
+        raw = {}
+    rows = raw.get('accts') if isinstance(raw, dict) else raw
+    if not isinstance(rows, list):
+        rows = []
+    rows = [r for r in rows if isinstance(r, dict) and _norm_acct(r.get('id')) == r.get('id')]
+    if not any(r.get('id') == DEFAULT_ACCT for r in rows):
+        rows.insert(0, {'id': DEFAULT_ACCT, 'name': DEFAULT_ACCT_NAME,
+                        'created_at': _now(), 'builtin': True})
+    return rows
+
+
+def _reg_write(rows):
+    os.makedirs(BASE_DIR, exist_ok=True)
+    with open(ACCT_REG, 'w', encoding='utf-8') as f:
+        json.dump({'accts': rows}, f, ensure_ascii=False, indent=2)
+
+
+def list_accts():
+    return _reg_read()
+
+
+def add_acct(name, cash=None, plan_file='', plan_name=''):
+    """新建一个独立实盘账户，返回 {'id','name'}。
+
+    plan_file / plan_name 记录该实盘是由哪份批次计划 JSON 创建的，
+    用于实盘展示模块与个股行情页的子列表标题。
+    """
+    nm = (str(name or '').strip() or '实盘账户')[:24]
+    rows = _reg_read()
+    used = {r.get('id') for r in rows}
+    base = 'lv' + datetime.now().strftime('%Y%m%d%H%M%S')
+    aid, i = base, 1
+    while aid in used:
+        i += 1
+        aid = base + str(i)
+    row = {'id': aid, 'name': nm, 'created_at': _now()}
+    if plan_file:
+        row['plan_file'] = str(plan_file)[:240]
+    if plan_name:
+        row['plan_name'] = str(plan_name)[:160]
+    rows.append(row)
+    _reg_write(rows)
+    # 立刻建库，避免首次展示时接口空转
+    pm, pa = current_mode(), current_acct()
+    try:
+        use_mode('live')
+        use_acct(aid)
+        init()
+        if cash and float(cash) > 0:
+            reset(cash)
+    finally:
+        use_mode(pm)
+        use_acct(pa)
+    return {'id': aid, 'name': nm}
+
+
+def rename_acct(aid, name):
+    a = _norm_acct(aid)
+    nm = (str(name or '').strip() or '实盘账户')[:24]
+    rows = _reg_read()
+    for r in rows:
+        if r.get('id') == a:
+            r['name'] = nm
+            _reg_write(rows)
+            return True
+    return False
+
+
+def delete_acct(aid):
+    """删除实盘账户（主账户不允许删），连同库文件一起清掉。"""
+    a = _norm_acct(aid)
+    if a == DEFAULT_ACCT:
+        return False, '主账户不可删除'
+    rows = _reg_read()
+    if not any(r.get('id') == a for r in rows):
+        return False, '账户不存在'
+    path = db_path('live', a)
+    _INITED.discard(path)
+    for suffix in ('', '-wal', '-shm'):
+        try:
+            os.remove(path + suffix)
+        except OSError:
+            pass
+    _reg_write([r for r in rows if r.get('id') != a])
+    return True, ''
+
 
 
 def _conn():

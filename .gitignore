@@ -10,6 +10,9 @@ sim_auto_config.json
 *.db-wal
 *.db-shm
 trade_inbox/
+# 多实盘账户：清单 + 各账户独立库文件
+live_accounts.json
+live_accts/
 
 # ---- Python ----
 __pycache__/

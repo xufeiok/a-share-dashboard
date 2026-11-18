@@ -10,7 +10,7 @@
 | 市场情绪 | 大盘指数、涨跌家数、涨跌停、ADL 腾落、成交与分布 |
 | 板块行业 | 同花顺行业/概念热力图、涨幅矩阵、K 线下钻 |
 | 个股行情 | 全市场排行、个股 K 线（含批次计划买卖标记） |
-| 交易持仓 | 回测 / 实盘双账本，批次计划、条件单、定时实盘 |
+| 交易持仓 | 回测 + 多实盘账户（每个实盘独立账本），批次计划、条件单、定时实盘 |
 | 因子透视 | 因子分组、IC、分层收益 |
 
 ## 环境
@@ -130,7 +130,7 @@ bt_indicator_bridge.py     Backtrader 指标桥
 indicators/                指标实现
 vendor/                    ECharts / KLineCharts 本地库
 plans/                     批次买卖计划（JSON）
-  ├── live/                实盘计划（写入 sim_trading_live.db）
+  ├── live/                实盘计划（默认写入 sim_trading_live.db，多实盘各自 live_accts/<id>.db）
   ├── backtest/            回测计划（写入 sim_trading.db）
   └── templates/           结构模板与完整示例
 trade_inbox/               定时实盘收件箱（运行时生成，不入库）

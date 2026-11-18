@@ -138,6 +138,35 @@
       });
     }
   });
+  /* 周期回归趋势线 PRTrend（主图）：3 个周期 × 上/下 2 条回归线 + 交点圆点。
+   * 数据来自后端 prtrend（indicators/PRTrend.py，兜底 stock_indicators.calc_prtrend），
+   * 后端以最后一根 K 线为基准回填最近 N 根，因此线只出现在最右侧窗口内；
+   * 窗口以外为 null（不 set），图线自动断开。 */
+  klinecharts.registerIndicator({
+    name: 'PRTrend', shortName: 'PRTrend', series: 'line', calcParams: [5, 20, 60],
+    figures: [
+      { key: 'hi_a', title: '上轨1', type: 'line', styles: () => ({ color: '#ff9800', size: 2 }) },
+      { key: 'lo_a', title: '下轨1', type: 'line', styles: () => ({ color: '#ff9800', size: 1, style: 'dashed', dashedValue: [4, 3] }) },
+      { key: 'cx_a', title: '交点1', type: 'circle', styles: () => ({ color: '#ff9800' }) },
+      { key: 'hi_b', title: '上轨2', type: 'line', styles: () => ({ color: '#42a5f5', size: 2 }) },
+      { key: 'lo_b', title: '下轨2', type: 'line', styles: () => ({ color: '#42a5f5', size: 1, style: 'dashed', dashedValue: [4, 3] }) },
+      { key: 'cx_b', title: '交点2', type: 'circle', styles: () => ({ color: '#42a5f5' }) },
+      { key: 'hi_c', title: '上轨3', type: 'line', styles: () => ({ color: '#ab47bc', size: 2 }) },
+      { key: 'lo_c', title: '下轨3', type: 'line', styles: () => ({ color: '#ab47bc', size: 1, style: 'dashed', dashedValue: [4, 3] }) },
+      { key: 'cx_c', title: '交点3', type: 'circle', styles: () => ({ color: '#ab47bc' }) }
+    ],
+    calc: function (dataList) {
+      const p = getInd().prtrend || {};
+      const keys = ['hi_a', 'lo_a', 'cx_a', 'hi_b', 'lo_b', 'cx_b', 'hi_c', 'lo_c', 'cx_c'];
+      const arr = {};
+      keys.forEach(k => { arr[k] = p[k] || []; });
+      return (dataList || []).map((_, i) => {
+        const o = {};
+        keys.forEach(k => { if (arr[k][i] != null) o[k] = arr[k][i]; });
+        return o;
+      });
+    }
+  });
   /* 以下 4 个与内置同名注册，覆盖内置算法为 my_bt_indicator bt 版（indicators/EnhancedMACD.py 等）。
    * 菜单名不变，计算走 backtrader 桥；参数名/默认值与后端一致（见 PARAM_MAP）。 */
   klinecharts.registerIndicator({
@@ -424,13 +453,15 @@
   /* ---------------- 状态 ---------------- */
   const S = {
     code: '600519.SH', name: '', freq: 'daily',
-    main: { ma: true, ema: false, sar: false, boll: false, st: false, vidya: false },
+    main: { ma: true, ema: false, sar: false, boll: false, st: false, vidya: false, uma: false, prt: false },
     subs: ['vol'],
     chart: null, mode: 'all',
     favs: JSON.parse(localStorage.getItem('skFavs') || '[]'),
     /* 目标列表：成员只能来自自选，自选里移除即自动剔除 */
     targets: JSON.parse(localStorage.getItem('skTargets') || '[]'),
     listCache: null, quote: null, inited: false,
+    /* 回测结果文件买卖点缓存 {file, trades}，切文件时失效 */
+    btMarks: null,
     bars: [], /* 当前标的全部 K 线（指标信息栏数值计算用） */
     bound: false,
     theme: 'dark',
@@ -465,7 +496,9 @@
     /* 模拟交易：面板开关、下单方向/类型、轮询定时器、最近一次账本快照 */
     sim: { on: false, side: 'buy', otype: 'limit', busy: false, timer: null,
            cfg: null, acc: null, positions: [], orders: [], trades: [],
-           acct: 'backtest', acctFixed: false, ptrades: [] },
+           acct: 'backtest', acctFixed: false, ptrades: [], refToken: 0 },
+    /* 实盘列表：当前选中的实盘账户 id + 各实盘计划池缓存 [{id,name,items,plan}] */
+    lvAcct: '', lvPools: null,
     intraMode: 'line',
     intraData: null,
     /* 最近一次报价（切回 K 线时用它的口径还原底部状态栏） */
@@ -473,7 +506,7 @@
   };
 
   /* 指标名映射：checkbox data-i → KLineChart indicator name */
-  const MAIN_IND = { ma: 'MA', ema: 'EMA', sar: 'SAR', boll: 'BOLL', st: 'SuperTrend', vidya: 'VolumeDynamicVIDYA', uma: 'UMA' };
+  const MAIN_IND = { ma: 'MA', ema: 'EMA', sar: 'SAR', boll: 'BOLL', st: 'SuperTrend', vidya: 'VolumeDynamicVIDYA', uma: 'UMA', prt: 'PRTrend' };
   const SUB_IND = { vol: 'VOL', macd: 'EnhancedMACD', macd0: 'MACD', kdj: 'X_KDJ', rsi: 'X_RSI', wr: 'WR', mfi: 'MFI', obv: 'X_OBV', cci: 'CCI', dmi: 'DMI', trix: 'TRIX', boll2: 'BOLL', xtr: 'X_XTR', bb: 'BBTrendScore' };
   /* 前端 calcParams ↔ 后端桥参数键名（顺序一一对应，与 bt_indicator_bridge.py 参数键名一致）；
    * 设置面板保存时按此映射转成后端键名请求 /api/stock/indicators 重算 */
@@ -481,6 +514,7 @@
     SuperTrend: ['st_period', 'st_mult'],
     VolumeDynamicVIDYA: ['vidya_len', 'vidya_mom', 'vidya_atr', 'vidya_sma', 'vidya_band'],
     UMA: ['ma_periods'],
+    PRTrend: ['prt_periods'], // 单个后端参数，弹窗多行数值以逗号拼成一个周期串
     X_XTR: ['xtr_period', 'xtr_ma', 'xtr_band', 'xtr_mult'],
     BBTrendScore: ['bb_period', 'bb_dev', 'roc_period', 'acc_period', 'roll_window', 'w_nbbw', 'w_roc', 'w_acc'],
     EnhancedMACD: ['macd_fast', 'macd_slow', 'macd_signal'],
@@ -489,7 +523,7 @@
     X_OBV: ['obv_ma']
   };
   /* 指标默认参数（KLineChart calcParams）；bt 版与后端桥默认值一致 */
-  const MAIN_PARAMS = { MA: [5, 10, 20, 60], EMA: [12, 26], SAR: [2, 2, 20], BOLL: [20, 2], SuperTrend: [10, 3], VolumeDynamicVIDYA: [10, 20, 200, 15, 2], UMA: [20, 50, 100] };
+  const MAIN_PARAMS = { MA: [5, 10, 20, 60], EMA: [12, 26], SAR: [2, 2, 20], BOLL: [20, 2], SuperTrend: [10, 3], VolumeDynamicVIDYA: [10, 20, 200, 15, 2], UMA: [20, 50, 100], PRTrend: [5, 20, 60] };
   const SUB_PARAMS = { VOL: [5, 10], EnhancedMACD: [12, 26, 9], X_KDJ: [9, 3], X_RSI: [14, 14], WR: [6, 10, 15], MFI: [14], X_OBV: [20], CCI: [14], DMI: [14, 6], TRIX: [12, 9], BOLL: [20, 2], X_XTR: [14, 9, 20, 2], BBTrendScore: [10, 0.5] };
 
   /* 画线工具（preview/pro.klinecharts.com 左侧列表风格）：
@@ -578,7 +612,8 @@
         const o = {};
         Object.keys(v).forEach(k2 => {
           const v2 = v[k2];
-          o[k2] = Array.isArray(v2) ? v2.slice(0, len) : v2;
+          // periods/colors 是指标元信息，不按 bar 对齐，不参与截断
+          o[k2] = (Array.isArray(v2) && k2 !== 'periods' && k2 !== 'colors') ? v2.slice(0, len) : v2;
         });
         out[k] = o;
         return;
@@ -746,7 +781,7 @@
     if (key === S.indCacheKey) return; // 数据未变化（如接口命中缓存返回相同内容）不重复重建
     S.indCacheKey = key;
     // 主图自定义指标（叠加 candle_pane，保留当前 calcParams）
-    ['SuperTrend', 'VolumeDynamicVIDYA', 'UMA'].forEach(n => {
+    ['SuperTrend', 'VolumeDynamicVIDYA', 'UMA', 'PRTrend'].forEach(n => {
       const on = Object.keys(MAIN_IND).some(k => MAIN_IND[k] === n && S.main[k]);
       if (!on) return;
       const cur = chart.getIndicators({ paneId: 'candle_pane', name: n })[0];
@@ -775,12 +810,14 @@
     const d = indCache.data;
     if (!d) return '';
     const last = (o, k) => { const a = o && o[k]; return a && a.length ? a[a.length - 1] : ''; };
-    const s = d.supertrend || {}, x = d.xtr || {}, v = d.vidya || {}, b = d.bb_score || {};
+    const s = d.supertrend || {}, x = d.xtr || {}, v = d.vidya || {}, b = d.bb_score || {}, r = d.prtrend || {};
     const pKeys = Object.keys(S.indParams).sort().map(k => k + '=' + S.indParams[k]).join(',');
     return ['st', s.up && s.up.length, last(s, 'up'),
             'x', x.xtr && x.xtr.length, last(x, 'xtr'),
             'v', v.vidya && v.vidya.length, last(v, 'vidya'),
             'b', b.score && b.score.length, last(b, 'score'),
+            // 周期回归趋势线：周期数 + 最长一组回归线的长度/末值（窗口右移即变化）
+            'r', (r.periods || []).join('-'), last(r, 'hi_c'), last(r, 'hi_a'),
             'p', pKeys].join('|');
   }
 
@@ -1104,6 +1141,16 @@
       const c = ['#2196F3', '#4CAF50', '#9E9E9E'];
       out.UMA = { vals: [1, 2, 3].map(i => ['UMA' + i, (u['ma' + i] && lastArr(u['ma' + i], 'value', idx)), c[i - 1]]) };
     }
+    if (S.main.prt) {
+      const p = ind.prtrend || {}, ps = p.periods || [], cs = p.colors || [];
+      const vals = [];
+      ['a', 'b', 'c'].forEach((s, i) => {
+        if (ps[i] == null) return;
+        vals.push(['上' + ps[i], lastArr(p, 'hi_' + s, idx), cs[i]]);
+        vals.push(['下' + ps[i], lastArr(p, 'lo_' + s, idx), cs[i]]);
+      });
+      out.PRTrend = { vals };
+    }
     // 副图
     const subs = S.subs || [];
     if (subs.includes('vol')) {
@@ -1259,9 +1306,12 @@
     const params = inst.calcParams || [];
     const short = inst.shortName || inst.name;
     const keys = PARAM_MAP[inst.name] || params.map((_, i) => 'p' + (i + 1)); // 无映射时用 p1/p2…
+    // 一个后端参数对应多个前端 calcParam（如 PRTrend 的 prt_periods=5,20,60）：
+    // 弹窗仍按多行数值编辑，保存时逗号拼成一个参数值
+    const joinOne = (PARAM_MAP[inst.name] || []).length === 1 && params.length > 1;
     $('skIndModalTitle').textContent = short + ' 参数设置';
     $('skIndModalBody').innerHTML = params.map((p, i) =>
-      `<div class="sk-modal-row"><label title="${keys[i]}">${keys[i]}</label>` +
+      `<div class="sk-modal-row"><label title="${keys[i]}">${joinOne ? keys[0] + '(' + (i + 1) + ')' : keys[i]}</label>` +
       `<input type="number" step="any" value="${p}" data-i="${i}"></div>`
     ).join('') + '<button class="sk-modal-ok" id="skIndModalOk">确定</button>';
     const ok = $('skIndModalOk');
@@ -1271,9 +1321,13 @@
         chart.overrideIndicator({ id: inst.id, calcParams: vals });
         // 仅 bt 桥指标（PARAM_MAP 有映射）联动后端重算；内置指标（MA/MACD 等）只在本地生效
         if (PARAM_MAP[inst.name] && PARAM_MAP[inst.name].length) {
-          // 参数名与后端桥一致：vals[i] ↔ keys[i]（ma_periods 逗号串，后端转 tuple）
+          // 参数名与后端桥一致：vals[i] ↔ keys[i]（ma_periods/prt_periods 逗号串，后端转 tuple）
           const kv = {};
-          vals.forEach((v, i) => { kv[keys[i]] = v; });
+          if (joinOne) {
+            kv[keys[0]] = vals.join(',');
+          } else {
+            vals.forEach((v, i) => { kv[keys[i]] = v; });
+          }
           Object.keys(kv).forEach(k => { if (kv[k] == null) delete kv[k]; });
           S.indParams = Object.assign({}, S.indParams, kv);
           S.indCacheKey = ''; // 强制重建（参数指纹已并入 indCacheKey）
@@ -1801,26 +1855,60 @@ function switchMode(mode) {
   setTimeout(() => { if (S.chart) S.chart.resize(); }, 60);
 }
 
-async function loadList() {
-  try {
-    const el = $('skList');
-    if (!el) return;
-    if (S.mode === 'plan_bt' || S.mode === 'plan_live') {
-      const md = S.mode === 'plan_bt' ? 'backtest' : 'live';
-      let items = [];
-      try {
-        const r = await (await fetch(`${API}/sim/plan/pool?mode=${md}`)).json();
-        items = (r.items || []).map(x => ({ code: x.code, name: x.name, pctChg: x.pct_chg }));
-      } catch (e) { console.warn('[SK-KC] plan pool fail', e); }
-      hideLinkBar();
-      if (!items.length) {
-        el.innerHTML = '<div class="s-empty">' + (md === 'backtest' ? '回测列表为空' : '实盘列表为空') +
-          '<br>交易持仓页执行批次 JSON 后自动出现<br>本列表只读，手工添加请用「自选」</div>';
+  /* 交易页当前选中的回测结果文件；个股页「回测」列表与 K 线买卖标记都跟着它走 */
+  function btFile() { try { return localStorage.getItem('ak_bt_file') || ''; } catch (e) { return ''; } }
+
+  /* 回测结果文件的全部买卖点（按文件缓存，切文件时才重拉，避免每 4s 轮询重复请求） */
+  async function btMarkTrades() {
+    const file = btFile();
+    if (!file) return null;
+    if (S.btMarks && S.btMarks.file === file) return S.btMarks.trades;
+    try {
+      const r = await (await fetch(`${API}/bt/marks?file=${encodeURIComponent(file)}`)).json();
+      S.btMarks = { file: file, trades: r.marks || [] };
+      return S.btMarks.trades;
+    } catch (e) { console.warn('[SK-KC] bt marks fail', e); return null; }
+  }
+
+  async function loadList() {
+    try {
+      const el = $('skList');
+      if (!el) return;
+      if (S.mode === 'plan_bt' || S.mode === 'plan_live') {
+        // 回测：列表 = 交易页当前选中的回测结果文件涉及的股票（切文件即换股）
+        const selFile = S.mode === 'plan_bt' ? btFile() : '';
+        if (selFile) {
+          let items = [];
+          try {
+            const r = await (await fetch(`${API}/bt/symbols?file=${encodeURIComponent(selFile)}`)).json();
+            items = (r.symbols || []).map(x => ({ code: x.code, name: x.name || x.code, pctChg: 0 }));
+          } catch (e) { console.warn('[SK-KC] bt symbols fail', e); }
+          hideLinkBar();
+          if (!items.length) {
+            el.innerHTML = '<div class="s-empty">该回测结果文件未绑定股票代码' +
+              '<br>在 JSON 顶层或每笔委托加 code 后自动标注</div>';
+            return;
+          }
+          renderList(items, false);
+          return;
+        }
+        // 实盘：每个实盘账户一个子列表；点分组头切换当前实盘（K 线买卖标记随之切换）
+        if (S.mode === 'plan_live') { await loadLiveGroups(el); return; }
+        const md = 'backtest';
+        let items = [];
+        try {
+          const r = await (await fetch(`${API}/sim/plan/pool?mode=${md}`)).json();
+          items = (r.items || []).map(x => ({ code: x.code, name: x.name, pctChg: x.pct_chg }));
+        } catch (e) { console.warn('[SK-KC] plan pool fail', e); }
+        hideLinkBar();
+        if (!items.length) {
+          el.innerHTML = '<div class="s-empty">回测列表为空' +
+            '<br>交易持仓页执行批次 JSON 后自动出现<br>本列表只读，手工添加请用「自选」</div>';
+          return;
+        }
+        renderList(items, false);
         return;
       }
-      renderList(items, false);
-      return;
-    }
     if (S.mode === 'fav' || S.mode === 'target') {
       syncTargets();
       const codes = S.mode === 'fav' ? S.favs : S.targets;
@@ -1941,6 +2029,95 @@ async function loadList() {
     }));
   }
 
+  /* ---------------- 实盘列表：每个实盘一个子列表 ---------------- */
+  /* 实盘账户 → 各自的计划股票池。每新增一个实盘，这里就多一个分组；
+     删除实盘后自动消失。分组头点击切换当前实盘，K 线买卖标记只画它的成交。 */
+  async function loadLiveGroups(el) {
+    let accts = [];
+    try {
+      const r = await (await fetch(`${API}/sim/accts`)).json();
+      accts = (r && r.accts) || [];
+    } catch (e) { console.warn('[SK-KC] live accts fail', e); }
+    const groups = [];
+    await Promise.all(accts.map(async a => {
+      let items = [];
+      try {
+        const u = `${API}/sim/plan/pool?mode=live&acct=${encodeURIComponent(a.id)}`;
+        const r = await (await fetch(u)).json();
+        items = (r.items || []).map(x => ({ code: x.code, name: x.name, pctChg: x.pct_chg }));
+      } catch (e) { console.warn('[SK-KC] live pool fail', e); }
+      groups.push({ id: a.id, name: a.name || a.id, items: items, plan: a.plan_name || '' });
+    }));
+    const order = {};
+    accts.forEach((a, i) => { order[a.id] = i; });
+    groups.sort((x, y) => (order[x.id] || 0) - (order[y.id] || 0));
+    S.lvPools = groups;
+    hideLinkBar();
+    if (!groups.length) {
+      el.innerHTML = '<div class="s-empty">暂无实盘<br>交易持仓页选择批次计划 JSON 执行后自动出现<br>本列表只读，手工添加请用「自选」</div>';
+      return;
+    }
+    const prev = S.lvAcct;
+    if (!S.lvAcct || !groups.some(g => g.id === S.lvAcct)) {
+      const first = groups.filter(g => g.items.length)[0] || groups[0];
+      S.lvAcct = first ? first.id : '';
+    }
+    renderGroupedList(groups);
+    // 列表异步加载完才知道当前实盘，补一次取数，否则首次进入「实盘」时 K 线没有买卖标记
+    if (prev !== S.lvAcct) simRefresh();
+  }
+
+  function renderGroupedList(groups) {
+    const el = $('skList');
+    if (!el) return;
+    el.innerHTML = groups.map(g => {
+      const on = g.id === S.lvAcct ? ' on' : '';
+      const head = `<div class="s-group${on}" data-acct="${g.id}" title="${g.plan ? '来源：' + g.plan : ''}">
+        <span class="gname">${g.name}</span><span class="gcnt">${g.items.length} 只</span></div>`;
+      const rows = g.items.map(it => {
+        const cls = it.code === S.code ? 'active' : '';
+        const pc = it.pctChg || 0;
+        const color = pc > 0 ? RED : pc < 0 ? GREEN : GRAY;
+        const bd = boardOf(it.code);
+        const bdHtml = bd.k
+          ? `<span class="bd" title="${bd.t}" style="color:${bd.c};background:${bd.c}1f;border:1px solid ${bd.c}40">${bd.k}</span>`
+          : '';
+        return `<div class="s-item sub ${cls}" data-code="${it.code}" data-name="${it.name}" data-acct="${g.id}">
+          <span class="nm">${it.name}</span>
+          <span class="cdw">${bdHtml}<span class="cd">${it.code.split('.')[0]}</span></span>
+          <span class="pc" style="color:${color}">${pc > 0 ? '+' : ''}${pc.toFixed(2)}%</span>
+        </div>`;
+      }).join('');
+      return head + (rows || '<div class="s-empty" style="padding:8px 12px">该实盘暂无计划股票</div>');
+    }).join('');
+    el.querySelectorAll('.s-group').forEach(h => h.addEventListener('click', () => {
+      const id = h.dataset.acct;
+      if (!id) return;
+      el.querySelectorAll('.s-group').forEach(x => x.classList.toggle('on', x.dataset.acct === id));
+      if (id === S.lvAcct) return;
+      S.lvAcct = id;
+      // 切实盘：先清掉上一实盘的买卖标记，再按新实盘账本取数重画
+      S.sim.trades = [];
+      drawSimMarks();
+      simRefresh();
+    }));
+    el.querySelectorAll('.s-item').forEach(row => row.addEventListener('click', () => {
+      /* 点某个实盘子列表里的股票时，同时把当前实盘切到该分组，
+         否则 K 线会用上一个实盘的买卖标记 */
+      const aid = row.dataset.acct;
+      if (aid && aid !== S.lvAcct) {
+        S.lvAcct = aid;
+        el.querySelectorAll('.s-group').forEach(x => x.classList.toggle('on', x.dataset.acct === aid));
+        S.sim.trades = [];
+        drawSimMarks();
+        loadStock(row.dataset.code);
+        simRefresh();
+        return;
+      }
+      loadStock(row.dataset.code);
+    }));
+  }
+
   /* ---------------- 股票切换 / 初始化 ---------------- */
   function loadStock(code) {
     S.code = code;
@@ -1989,14 +2166,18 @@ async function loadList() {
     syncIndicators();
     hidePaneTitles(); // 隐藏 canvas 内置标题行，指标信息栏（带按钮）为唯一信息排
     /* DOM 成交点位层不随 K 线滚动/缩放自动移动，必须在交互期间按新坐标重画：
-       拖动（pointerdown+move）、滚轮缩放、内置缩放按钮（click）、双击复位 */
+       可视区间变化（缩放、拖动、数据加载）、拖动（pointerdown+move）、滚轮缩放、
+       内置缩放按钮（click）、双击复位 */
+    let markRaf = 0;
+    const later = () => {
+      if (markRaf) return;
+      markRaf = requestAnimationFrame(() => { markRaf = 0; drawSimMarks(); });
+    };
+    /* 图表内部任何缩放/拖动最终都会改可视区间，这是最可靠的触发点 */
+    chart.subscribeAction('onVisibleRangeChange', later);
     if (!S.markBound) {
       S.markBound = true;
-      let drag = false, raf = 0;
-      const later = () => {
-        if (raf) return;
-        raf = requestAnimationFrame(() => { raf = 0; drawSimMarks(); });
-      };
+      let drag = false;
       el.addEventListener('pointerdown', () => { drag = true; later(); }, true);
       window.addEventListener('pointerup', () => { drag = false; }, true);
       /* 跟手：拖出图表边界（快速甩动）也要继续重画，所以 pointermove 挂在 window */
@@ -3139,7 +3320,7 @@ async function loadList() {
     if (S.sim.otype === 'limit' && !price) { simToast('限价委托请填写价格', true); return; }
     S.sim.busy = true;
     const btn = $('skSimSubmit'); if (btn) btn.disabled = true;
-    const r = await simApi('/sim/order?mode=' + simAcct(), {
+    const r = await simApi('/sim/order?' + acctQuery(), {
       method: 'POST',
       body: JSON.stringify({
         code: code, name: ($('skSimName') || {}).textContent || '',
@@ -3188,6 +3369,12 @@ async function loadList() {
   /* 面板账户：显式选择后固定，未选择时跟随左侧列表 */
   function simListMode() { return (S.mode === 'plan_live') ? 'live' : 'backtest'; }
   function simAcct() { return S.sim.acctFixed ? S.sim.acct : simListMode(); }
+  /* 查询串：实盘还要带上当前选中的实盘账户，后端据此切换到该账户的库文件 */
+  function acctQuery(m) {
+    const mm = m || simAcct();
+    if (mm === 'live' && S.lvAcct) return 'mode=live&acct=' + encodeURIComponent(S.lvAcct);
+    return 'mode=' + mm;
+  }
 
   function simSyncAcctTabs() {
     const m = simAcct();
@@ -3214,20 +3401,31 @@ async function loadList() {
 
   async function simRefresh() {
     if (S.sim.busy) return;
+    /* 刷新令牌：切列表/切实盘时会连续发起多次刷新，只应用最后一次的结果，
+       避免慢响应回来把已经切好的账本数据覆盖回旧的 */
+    const token = (S.sim.refToken || 0) + 1;
+    S.sim.refToken = token;
     // 面板数据走「面板账户」；K 线买卖标记仍由左侧列表模式决定，两者互不干扰
     if (!S.sim.acctFixed) S.sim.acct = simListMode();
     simSyncAcctTabs();
     const am = simAcct();          // 面板账本
     const lm = simListMode();      // 标记账本
-    const reqs = [simApi('/sim/account?mode=' + am), simApi('/sim/orders?limit=30&mode=' + am),
-      simApi('/sim/trades?limit=500&mode=' + am), simApi('/sim/cond?status=active&mode=' + am)];
-    if (lm !== am) reqs.push(simApi('/sim/trades?limit=500&mode=' + lm));
+    const qAm = acctQuery(am), qLm = acctQuery(lm);
+    const reqs = [simApi('/sim/account?' + qAm), simApi('/sim/orders?limit=30&' + qAm),
+      simApi('/sim/trades?limit=500&' + qAm), simApi('/sim/cond?status=active&' + qAm)];
+    if (qLm !== qAm) reqs.push(simApi('/sim/trades?limit=500&' + qLm));
     const res = await Promise.all(reqs);
+    if (token !== S.sim.refToken) return;   // 已有更新的刷新在途，丢弃本次旧结果
     if (res[0]) S.sim.acc = res[0];
     if (res[1]) S.sim.orders = res[1].orders || [];
     if (res[2]) S.sim.ptrades = res[2].trades || [];
     if (res[3]) S.sim.conds = res[3].cond_orders || [];
-    S.sim.trades = (lm === am) ? (S.sim.ptrades || []) : (res[4] ? (res[4].trades || []) : []);
+    S.sim.trades = (qLm === qAm) ? (S.sim.ptrades || []) : (res[4] ? (res[4].trades || []) : []);
+    // 回测列表：K 线买卖标记改用所选结果文件里的成交（与左侧列表同一份文件）
+    if (S.mode === 'plan_bt') {
+      const bt = await btMarkTrades();
+      if (bt) S.sim.trades = bt;
+    }
     simRender();
     simRenderCond();
     drawSimMarks();
@@ -3251,12 +3449,19 @@ async function loadList() {
         layer.id = 'skMarkLayer';
         el.appendChild(layer);
       }
-      layer.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:8';
+      layer.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:8;overflow:hidden';
       layer.innerHTML = '';
       const bars = S.bars || [];
       const barsTs = bars.map(b => b.timestamp);
+      /* 绘图区尺寸：容器宽度含右侧价格轴，越界判断要用主图区，否则缩放后标记会画进价格轴 */
+      let plotW = el.clientWidth, plotH = el.clientHeight;
+      try {
+        const bd = S.chart.getSize('candle_pane', 'main');
+        if (bd && bd.width > 0 && bd.height > 0) { plotW = bd.width; plotH = bd.height; }
+      } catch (e) { /* 忽略 */ }
       const tr = ((S.sim && S.sim.trades) || []).filter(t => t.code === S.code).slice(-60);
       const drawn = [];
+      const usedPos = {};   // 同一根 K 线同一价位的成交（不同实盘/多笔）标签错位，避免互相盖住
       tr.forEach(t => {
         const t0 = new Date(t.asof + 'T00:00:00').getTime();
         /* 计划日可能落在非交易日（timed 顺延到下一交易日、停牌等），
@@ -3271,6 +3476,8 @@ async function loadList() {
         let pt = null;
         try { pt = S.chart.convertToPixel({ timestamp: ts, value: Number(t.price) }); } catch (e) { pt = null; }
         if (!pt || !isFinite(pt.x) || !isFinite(pt.y)) return;
+        /* 缩放/拖动后成交可能落在可视区间之外：不画，否则会飘在图表外看着像错乱 */
+        if (pt.x < -4 || pt.x > plotW + 4 || pt.y < 0 || pt.y > plotH) return;
         const buy = t.side === 'buy';
         const color = buy ? '#f23645' : '#4a9eff';
         const dot = document.createElement('div');
@@ -3280,9 +3487,14 @@ async function loadList() {
         const lab = document.createElement('div');
         lab.textContent = (buy ? '买' : '卖') + (t.qty || '');
         /* 买标签在点上方、卖标签在点下方：同一价位附近买卖不会互相压住；
-           靠右边缘时标签翻到点的左侧，避免被裁 */
-        const lbLeft = (pt.x + 7 + 64 > el.clientWidth) ? (pt.x - 68) : (pt.x + 7);
-        lab.style.cssText = 'position:absolute;left:' + lbLeft + 'px;top:' + (pt.y + (buy ? -17 : 3)) + 'px;' +
+           靠右边缘时标签翻到点的左侧，避免被裁；
+           同一像素点上的多笔成交（如两个实盘持有同一只股票）按出现次序纵向错开 */
+        const lbLeft = (pt.x + 7 + 64 > plotW) ? (pt.x - 68) : (pt.x + 7);
+        const key = Math.round(pt.x) + '_' + Math.round(pt.y);
+        const nth = usedPos[key] || 0;
+        usedPos[key] = nth + 1;
+        const lbTop = pt.y + (buy ? -17 : 3) + (buy ? -1 : 1) * nth * 16;
+        lab.style.cssText = 'position:absolute;left:' + lbLeft + 'px;top:' + lbTop + 'px;' +
           'font-size:10px;line-height:14px;padding:0 4px;border-radius:2px;color:#fff;background:' + color +
           ';white-space:nowrap;font-weight:600';
         layer.appendChild(dot);
@@ -3342,7 +3554,7 @@ async function loadList() {
   }
 
   async function simCancelCond(id) {
-    const r = await simApi('/sim/cond/cancel?mode=' + simAcct(), {
+    const r = await simApi('/sim/cond/cancel?' + acctQuery(), {
       method: 'POST', body: JSON.stringify({ cond_id: id, asof: S.endDate || '', mode: simAcct() })
     });
     if (r && r.ok === false && r.reason) simToast(r.reason, true);
@@ -3364,7 +3576,7 @@ async function loadList() {
     if (!items.length) { simToast('至少填一个百分比', true); return; }
     let okN = 0, msg = '';
     for (let i = 0; i < items.length; i++) {
-      const r = await simApi('/sim/cond?mode=' + simAcct(), {
+      const r = await simApi('/sim/cond?' + acctQuery(), {
         method: 'POST',
         body: JSON.stringify({ code: code, kind: items[i][0], pct: items[i][1] / 100,
           arm_pct: (items[i][2] || 0) / 100, asof: S.endDate || '', mode: simAcct() })
@@ -3527,7 +3739,7 @@ async function loadList() {
     if (reset) reset.addEventListener('click', () => {
       const md = simAcct();
       if (!confirm('重置「' + (md === 'live' ? '实盘' : '回测') + '」账户：清空该账本的持仓/委托/成交，恢复初始资金？')) return;
-      simApi('/sim/reset?mode=' + md, { method: 'POST', body: JSON.stringify({ mode: md }) })
+      simApi('/sim/reset?' + acctQuery(md), { method: 'POST', body: JSON.stringify({ mode: md }) })
         .then(() => { simToast((md === 'live' ? '实盘' : '回测') + '账户已重置'); simRefresh(); });
     });
     const posEl = $('skSimPos');
@@ -3538,7 +3750,7 @@ async function loadList() {
     const ordEl = $('skSimOrders');
     if (ordEl) ordEl.addEventListener('click', e => {
       const c = e.target.closest('[data-cancel]'); if (!c) return;
-      simApi('/sim/cancel?mode=' + simAcct(), { method: 'POST', body: JSON.stringify({ order_id: parseInt(c.dataset.cancel), asof: S.endDate || '', mode: simAcct() }) })
+      simApi('/sim/cancel?' + acctQuery(), { method: 'POST', body: JSON.stringify({ order_id: parseInt(c.dataset.cancel), asof: S.endDate || '', mode: simAcct() }) })
         .then(r => { simToast(r && r.ok ? '已撤单' : ((r && r.reason) || '撤单失败'), !(r && r.ok)); simRefresh(); });
     });
     const kd = $('skKlineDate');
@@ -3546,7 +3758,14 @@ async function loadList() {
     simLoadCfg();
   }
 
-  window.StockKline = { init: ensureKcActive, loadStock: loadStock };
+  /* 交易页切换回测结果文件 / 增删实盘后，刷新左侧列表与 K 线买卖标记 */
+  function reloadList() {
+    if (!S.inited) return;
+    if (S.mode === 'plan_bt') { S.btMarks = null; loadList(); simRefresh(); }
+    else if (S.mode === 'plan_live') { S.lvPools = null; loadList(); simRefresh(); }
+  }
+
+  window.StockKline = { init: ensureKcActive, loadStock: loadStock, reloadList: reloadList };
   if (typeof App !== 'undefined') {
     App.initStockKlinePage = function () { if (window.StockKline) window.StockKline.init(); };
   }

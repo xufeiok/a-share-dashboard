@@ -499,31 +499,38 @@ def _job_due(j, now):
 
 
 def _run_plan_jobs():
-    """定时实盘：按每个任务自己的调度方式读取同一份批次计划文件（live 账本）。"""
+    """定时实盘：按每个任务自己的调度方式读取同一份批次计划文件。
+
+    每个实盘账户各自一份任务清单与账本，逐个账户轮流执行。
+    """
     prev = sim_store.current_mode()
+    prev_acct = sim_store.current_acct()
     now = datetime.now()
     try:
         sim_store.use_mode('live')
-        for j in sim_store.list_plan_jobs():
-            if not int(j.get('enabled') or 0):
-                continue
-            path = (j.get('file_path') or '').strip()
-            if not path or not os.path.exists(path):
-                continue
-            if int(j.get('only_session') or 0) and not _in_session(now):
-                continue
-            due, _why = _job_due(j, now)
-            if not due:
-                continue
-            if not _PLAN_EXECUTOR:
-                continue
-            try:
-                r = _PLAN_EXECUTOR(path, '')
-                sim_store.touch_plan_job(j['id'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                         '成功 %s / 跳过 %s' % (r.get('success', 0), len(r.get('skipped') or [])))
-            except Exception:
-                traceback.print_exc()
+        for a in sim_store.list_accts():
+            sim_store.use_acct(a['id'])
+            for j in sim_store.list_plan_jobs():
+                if not int(j.get('enabled') or 0):
+                    continue
+                path = (j.get('file_path') or '').strip()
+                if not path or not os.path.exists(path):
+                    continue
+                if int(j.get('only_session') or 0) and not _in_session(now):
+                    continue
+                due, _why = _job_due(j, now)
+                if not due:
+                    continue
+                if not _PLAN_EXECUTOR:
+                    continue
+                try:
+                    r = _PLAN_EXECUTOR(path, '')
+                    sim_store.touch_plan_job(j['id'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                             '成功 %s / 跳过 %s' % (r.get('success', 0), len(r.get('skipped') or [])))
+                except Exception:
+                    traceback.print_exc()
     finally:
+        sim_store.use_acct(prev_acct)
         sim_store.use_mode(prev)
 
 

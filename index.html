@@ -221,6 +221,18 @@ body { display: flex; flex-direction: column; }
 .trd-sub{font-size:11px;font-weight:400;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .trd-body{padding:8px 10px;display:flex;flex-direction:column;gap:8px}
 .trd-chart{height:286px;width:100%}
+.trd-eqbar{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--border-color);flex-wrap:wrap}
+.trd-seg{display:inline-flex;border:1px solid var(--border-color);border-radius:3px;overflow:hidden}
+.trd-seg button{background:var(--bg-primary);border:0;color:var(--text-secondary);font-size:11px;padding:4px 10px;cursor:pointer}
+.trd-seg button+button{border-left:1px solid var(--border-color)}
+.trd-seg button.on{background:rgba(90,140,255,.18);color:#9db8ff}
+.trd-idx{position:relative;display:inline-block}
+.trd-idx-panel{display:none;position:absolute;z-index:40;top:calc(100% + 4px);left:0;min-width:150px;max-height:264px;overflow:auto;
+  background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+.trd-idx-panel.open{display:block}
+.trd-idx-panel label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-primary);padding:3px 4px;cursor:pointer;white-space:nowrap}
+.trd-idx-panel label:hover{background:var(--bg-hover)}
+.trd-tbl td.ttl{text-align:left;color:var(--text-primary)}
 .trd-scroll{overflow:auto;max-height:330px}
 .trd-ta{width:100%;box-sizing:border-box;min-height:86px;resize:vertical;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:3px;color:var(--text-primary);font-size:12px;line-height:1.6;padding:6px 8px;font-family:ui-monospace,Consolas,monospace}
 .trd-ta.sm{min-height:58px}
@@ -261,6 +273,24 @@ body { display: flex; flex-direction: column; }
 .trd-reset-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px}
 .trd-reset-bar .trd-sub{margin:0}
 .trd-pos-wrap .trd-tbl{min-width:520px}
+/* 多实盘账户：每个实盘一块独立面板 */
+.lv-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;flex-wrap:wrap}
+.lv-bar-l{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.lv-bar-t{font-size:13px;font-weight:600;color:var(--text-primary)}
+.lv-bar-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lv-wrap{display:flex;flex-direction:column;gap:16px}
+.lv-mod{display:flex;flex-direction:column;gap:12px;padding:12px;background:var(--bg-primary);
+  border:1px solid var(--border-color);border-left:3px solid rgba(90,140,255,.55);border-radius:6px}
+.lv-mod-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lv-mod-t{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.lv-name{font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;border-bottom:1px dashed transparent}
+.lv-name:hover{border-bottom-color:var(--border-color)}
+.lv-tag{font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(90,140,255,.14);
+  border:1px solid rgba(90,140,255,.35);color:#9fc0ff}
+.lv-mod-ops{display:flex;gap:8px}
+.lv-mod .trd-card{margin-bottom:0}
+.lv-empty{padding:26px;text-align:center;color:var(--text-secondary);font-size:12px;
+  background:var(--bg-secondary);border:1px dashed var(--border-color);border-radius:6px}
 @media (max-width:900px){.trd-grid{grid-template-columns:minmax(0,1fr)}.trd-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 /* ===== 通用组件 ===== */
@@ -1138,6 +1168,16 @@ body { display: flex; flex-direction: column; }
 .s-item .bd { font-size:10px; line-height:13px; padding:0 2px; border-radius:2px; flex:0 0 auto; font-weight:600; }
 .s-item .fav { color:var(--text-tertiary); font-size:13px; cursor:pointer; }
 .s-item .fav.on { color:var(--accent-orange); }
+/* 个股行情 · 实盘列表：每个实盘一个子列表（头部 + 该实盘的股票） */
+.s-group { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px;
+  margin-top:4px; background:var(--bg-hover); border-top:1px solid var(--border-color);
+  border-bottom:1px solid var(--border-color); cursor:pointer; font-size:11px; color:var(--text-secondary); }
+.s-group:hover { background:var(--bg-active); }
+.s-group.on { color:#9db8ff; box-shadow:inset 2px 0 0 #5a8cff; }
+.s-group .gname { font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.s-group.on .gname { color:#9db8ff; }
+.s-group .gcnt { font-variant-numeric:tabular-nums; flex:0 0 auto; }
+.s-item.sub { padding-left:16px; }
 .stock-main { flex:1; min-width:0; display:flex; flex-direction:column; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:8px; overflow:hidden; }
 .sk-toolbar { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid var(--border-color); flex-wrap:wrap; }
 .sk-quote { display:flex; align-items:baseline; gap:10px; font-size:12px; color:var(--text-secondary); }
@@ -2124,6 +2164,7 @@ body { display: flex; flex-direction: column; }
                     <label data-g="main"><input type="checkbox" data-i="st"> SuperTrend</label>
                     <label data-g="main"><input type="checkbox" data-i="vidya"> VolumeDynamicVIDYA</label>
                     <label data-g="main"><input type="checkbox" data-i="uma"> UMA</label>
+                    <label data-g="main"><input type="checkbox" data-i="prt"> PRTrend 周期回归</label>
                   </div>
                   <div class="sk-ind-sec">
                     <div class="sk-ind-sec-title">副图指标</div>
@@ -2252,10 +2293,10 @@ body { display: flex; flex-direction: column; }
       <div class="page-header">
         <div>
           <div class="page-title">交易持仓</div>
-          <div class="page-desc">回测 / 实盘 双账户，资金、持仓、成交、条件单完全隔离 · 批次计划 JSON 驱动（多批次 / 多股票 / 多条件卖出）</div>
+          <div class="page-desc">回测 + 多实盘账户，每个实盘独立账本（资金 / 持仓 / 成交 / 条件单 / 定时任务 / 计划执行互不影响）· 批次计划 JSON 驱动（多批次 / 多股票 / 多条件卖出）</div>
         </div>
         <div class="page-actions">
-          <span class="trd-badge" id="trdMode">双账本</span>
+          <span class="trd-badge" id="trdMode">回测 + 多实盘</span>
           <button class="trd-btn ghost" id="trdRefresh">刷新</button>
         </div>
       </div>
@@ -2281,6 +2322,16 @@ body { display: flex; flex-direction: column; }
         <div class="trd-kpis" id="btKpis"></div>
         <div class="trd-card">
           <div class="trd-card-h"><span>权益曲线</span><span class="trd-sub" id="btEqInfo"></span></div>
+          <div class="trd-eqbar">
+            <span class="trd-seg" id="btEqSeg">
+              <button class="on" data-v="amount">账户收益金额</button>
+              <button data-v="return">累计收益率</button>
+            </span>
+            <span class="trd-idx" id="btIdxWrap" style="display:none">
+              <button class="trd-btn ghost" id="btIdxBtn">对比指数 ▾</button>
+              <span class="trd-idx-panel" id="btIdxPanel"></span>
+            </span>
+          </div>
           <div class="trd-chart" id="btEqChart"></div>
         </div>
         <div class="trd-card">
@@ -2293,96 +2344,65 @@ body { display: flex; flex-direction: column; }
         </div>
       </div>
 
-      <!-- 实盘账户模块 -->
+      <!-- 实盘：① 实盘执行（新建实盘：立即执行 / 定时执行） ② 执行日志 ③ 各实盘独立模块 -->
       <div class="trd-acct-panel" id="trdPanel_lv" style="display:none">
-        <div class="trd-card trd-reset-bar">
-          <span class="trd-sub">实盘账本独立存储 · 清空后回到初始资金，不影响回测</span>
-          <button class="trd-btn ghost" id="trdReset_lv">清空实盘账本</button>
-        </div>
-        <div class="trd-kpis" id="trdKpis_lv"></div>
-        <div class="trd-card">
-          <div class="trd-card-h"><span>累计收益曲线</span><span class="trd-sub" id="trdNavInfo_lv"></span></div>
-          <div class="trd-chart" id="trdNavChart_lv"></div>
-        </div>
-        <div class="trd-card">
-          <div class="trd-card-h"><span>持仓</span><span class="trd-sub" id="trdPosCnt_lv"></span></div>
-          <div class="trd-scroll trd-pos-wrap" id="trdPos_lv"></div>
-        </div>
-        <div class="trd-grid">
-          <div class="trd-card">
-            <div class="trd-card-h"><span>成交记录</span><span class="trd-sub" id="trdTradeCnt_lv"></span></div>
-            <div class="trd-scroll" id="trdTrades_lv"></div>
+        <!-- ① 实盘执行：原「实盘账户 / 定时实盘 / 批次计划执行」合并，独立于各实盘展示模块之上 -->
+        <div class="trd-card" id="lvRunCard" style="margin-bottom:12px">
+          <div class="trd-card-h">
+            <span>实盘执行</span>
+            <span class="trd-sub">选择批次计划 JSON → 立即执行 或 定时执行，每次都会新建一个独立实盘账本</span>
           </div>
-          <div class="trd-card">
-            <div class="trd-card-h"><span>条件单</span><span class="trd-sub" id="trdCondCnt_lv"></span></div>
-            <div class="trd-scroll" id="trdConds_lv"></div>
-          </div>
-        </div>
-        <div class="trd-card">
-          <div class="trd-card-h"><span>定时实盘</span><span class="trd-sub">按调度重复读取同一份 JSON · 只在实盘账本执行</span></div>
           <div class="trd-body">
             <div class="trd-row">
-              <input id="trdJobFile" class="trd-in" style="flex:1" placeholder="批次计划文件（相对项目根或绝对路径）">
+              <input id="lvNewName" class="trd-in" style="width:170px" maxlength="24" placeholder="实盘名称（留空取文件名）">
+              <input id="lvNewCash" class="trd-in" type="number" min="1000" step="10000" style="width:118px" placeholder="初始资金">
+              <input id="lvPlanFile" type="file" accept=".json,application/json" style="font-size:11px">
+              <span class="trd-sub" id="lvPlanName">未选择 JSON</span>
             </div>
             <div class="trd-row">
-              <select id="trdJobSched" class="trd-in" style="width:132px">
+              <span class="trd-sub">执行方式</span>
+              <select id="lvExecMode" class="trd-in" style="width:132px">
+                <option value="now">立即实盘执行</option>
+                <option value="sched">定时执行</option>
+              </select>
+              <select id="lvSchType" class="trd-in" style="width:132px;display:none">
                 <option value="interval">按间隔（每 N 分钟）</option>
                 <option value="daily">每天定点</option>
                 <option value="weekly">每周定点</option>
                 <option value="once">指定日期</option>
               </select>
-              <span id="trdJobIntervalWrap">
-                <input id="trdJobInterval" class="trd-in xs" type="number" min="1" value="60">
-                <span class="trd-sub">分钟</span>
-              </span>
-              <span id="trdJobTimeWrap" style="display:none">
-                <input id="trdJobTime" class="trd-in xs" type="time" value="09:31" style="width:96px">
-                <span class="trd-sub">执行时刻</span>
-              </span>
-              <span id="trdJobWeekWrap" style="display:none">
-                <select id="trdJobWeek" class="trd-in" style="width:82px">
-                  <option value="0">周一</option><option value="1">周二</option>
-                  <option value="2">周三</option><option value="3">周四</option>
-                  <option value="4">周五</option><option value="5">周六</option>
-                  <option value="6">周日</option>
-                </select>
-              </span>
-              <span id="trdJobDateWrap" style="display:none">
-                <input id="trdJobDate" class="trd-in" type="date" style="width:132px">
-              </span>
+              <span data-w="interval" style="display:none"><input id="lvSchInterval" class="trd-in xs" type="number" min="1" value="60" style="width:70px"><span class="trd-sub">分钟</span></span>
+              <span data-w="time" style="display:none"><input id="lvSchTime" class="trd-in" type="time" value="09:31" style="width:100px"><span class="trd-sub">执行时刻</span></span>
+              <span data-w="week" style="display:none"><select id="lvSchWeek" class="trd-in" style="width:86px">
+                <option value="0">周一</option><option value="1">周二</option><option value="2">周三</option><option value="3">周四</option>
+                <option value="4">周五</option><option value="5">周六</option><option value="6">周日</option></select></span>
+              <span data-w="date" style="display:none"><input id="lvSchDate" class="trd-in" type="date" style="width:136px"></span>
+              <label class="trd-chk" data-w="schedopt" style="display:none"><input type="checkbox" id="lvSchSession" checked> 仅交易时段</label>
+              <label class="trd-chk" data-w="schedopt" style="display:none"><input type="checkbox" id="lvSchEnabled" checked> 启用</label>
             </div>
             <div class="trd-row">
-              <label class="trd-chk"><input type="checkbox" id="trdJobSession" checked> 仅交易时段</label>
-              <label class="trd-chk"><input type="checkbox" id="trdJobEnabled" checked> 启用</label>
-              <button class="trd-btn" id="trdJobSave">保存任务</button>
-              <span class="trd-sub" id="trdJobTip"></span>
+              <button class="trd-btn ghost" id="lvPlanValidate">校验 JSON</button>
+              <button class="trd-btn buy" id="lvPlanGo">创建实盘并执行</button>
+              <button class="trd-btn ghost" id="lvReload">刷新</button>
+              <span class="trd-sub" id="lvRunTip"></span>
             </div>
-            <div class="trd-list" id="trdJobs"></div>
+            <div class="trd-result" id="lvRunRes"></div>
+            <div class="trd-row" style="margin-top:2px">
+              <span class="trd-sub" style="font-weight:600;color:var(--text-primary)">定时任务</span>
+              <span class="trd-sub">按调度重复读取同一份 JSON · 只在该实盘账本执行</span>
+            </div>
+            <div class="trd-scroll" id="lvJobsAll"></div>
           </div>
         </div>
-        <div class="trd-card">
-          <div class="trd-card-h"><span>执行日志</span><span class="trd-sub">实盘批次计划 / 定时任务执行记录</span></div>
-          <div class="trd-scroll" id="trdLogs_lv"></div>
+
+        <!-- ② 执行日志：所有实盘汇总，位于实盘执行与各实盘模块之间 -->
+        <div class="trd-card" style="margin-bottom:12px">
+          <div class="trd-card-h"><span>执行日志</span><span class="trd-sub">所有实盘的批次计划 / 定时任务执行记录</span></div>
+          <div class="trd-scroll" id="lvLogsAll"></div>
         </div>
-        <div class="trd-card">
-          <div class="trd-card-h"><span>实盘批次计划执行</span><span class="trd-sub">只接受 JSON · 多批次 / 多股票 / 多条件卖出</span></div>
-          <div class="trd-body">
-            <div class="trd-row">
-              <input type="file" id="trdPlanFile" accept=".json,application/json" class="trd-file">
-              <span class="trd-sub" id="trdPlanName">未选择文件</span>
-            </div>
-            <div class="trd-row">
-              <button class="trd-btn ghost" id="trdPlanValidate">校验</button>
-              <button class="trd-btn buy" id="trdPlanRun">实盘执行</button>
-            </div>
-            <div class="trd-sub" style="margin-top:6px;line-height:1.6">
-              模板：<b>plans/templates/quant_batch_template.json</b> · 示例 <b>plans/templates/quant_batch_example.json</b><br>
-              实盘计划放 <b>plans/live/</b>；回测请用 backtrader 跑完后把结果 JSON 放进 <b>backtest_results/</b><br>
-              批次时间支持 once(某日) / daily(每交易日) / monthly_nth_weekday(每月第 N 个周 X)
-            </div>
-            <div class="trd-result" id="trdPlanRes"></div>
-          </div>
-        </div>
+
+        <!-- ③ 各实盘独立展示模块：选择 JSON 执行后自动新增一块 -->
+        <div id="lvAcctWrap" class="lv-wrap"></div>
       </div>
     </div>
 
@@ -4038,31 +4058,48 @@ const App = {
     const $ = id => document.getElementById(id);
     const on = (id, ev, fn) => { const el = $(id); if (el) el[ev] = fn; };
     on('trdRefresh', 'onclick', () => { this.loadTrade(); this.loadBtFiles(true); });
-    on('trdReset_lv', 'onclick', () => this.trdReset('live'));
     on('btReload', 'onclick', () => this.loadBtFiles(true));
     on('btPin', 'onclick', () => this.btPin());
+    // 权益曲线：金额 / 累计收益率 双视图 + 指数对比多选
+    this._btEqView = this._btEqView || 'amount';
+    try { this._btIdxSel = JSON.parse(localStorage.getItem('ak_bt_idx') || '[]') || []; }
+    catch (e) { this._btIdxSel = []; }
+    document.querySelectorAll('#btEqSeg button').forEach(b => {
+      b.onclick = () => { this._btEqView = b.getAttribute('data-v'); this.btRenderEquity(this._btEqData || {}); };
+    });
+    const idxBtn = document.getElementById('btIdxBtn');
+    const idxPanel = document.getElementById('btIdxPanel');
+    if (idxBtn && idxPanel) {
+      idxBtn.onclick = (e) => { e.stopPropagation(); idxPanel.classList.toggle('open'); };
+      document.addEventListener('click', (e) => {
+        if (!idxPanel.contains(e.target) && e.target !== idxBtn) idxPanel.classList.remove('open');
+      });
+    }
+    this._btRenderIdxPanel();
     const bsel = document.getElementById('btFileSel');
     if (bsel) bsel.onchange = () => this.loadBtFile(bsel.value);
     this.loadBtFiles();
-    on('trdPlanValidate', 'onclick', () => this.trdPlan('validate'));
-    on('trdPlanRun', 'onclick', () => this.trdPlan('run'));
-    on('trdJobSave', 'onclick', () => this.trdSaveJob());
-    on('trdJobSched', 'onchange', () => this.trdSyncSched());
-    this.trdSyncSched();
-    on('trdPlanFile', 'onchange', (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (!f) return;
-      const rd = new FileReader();
-      rd.onload = () => {
-        this._trdPlanText = String(rd.result || '');
-        const n = $('trdPlanName');
-        if (n) n.textContent = f.name + ' · ' + this._trdPlanText.length + ' 字符';
-      };
-      rd.readAsText(f, 'utf-8');
-    });
+    // 实盘执行（原实盘账户 / 定时实盘 / 批次计划执行合并）：选 JSON → 立即执行 或 定时执行
+    on('lvPlanFile', 'onchange', (e) => this.lvPickPlan(e.target));
+    on('lvExecMode', 'onchange', () => this.lvSyncSchedTop());
+    on('lvSchType', 'onchange', () => this.lvSyncSchedTop());
+    on('lvPlanValidate', 'onclick', () => this.lvValidatePlan());
+    on('lvPlanGo', 'onclick', () => this.lvRunPlan());
+    on('lvReload', 'onclick', () => this.loadTrade());
+    this.lvSyncSchedTop();
+    const runCard = $('lvRunCard');
+    if (runCard) runCard.addEventListener('click', (e) => this.lvRunOnClick(e));
+    // 各实盘模块内的交互（清空 / 改名 / 删除）统一走事件委托
+    const wrap = $('lvAcctWrap');
+    if (wrap) wrap.addEventListener('click', (e) => this.lvOnClick(e));
     document.querySelectorAll('.trd-atab').forEach(b => {
       b.onclick = () => this.trdSwitchAcct(b.getAttribute('data-acct'));
     });
+    // 恢复上次停留的账本 tab
+    try {
+      const saved = localStorage.getItem('ak_trd_acct');
+      if (saved === 'lv' || saved === 'bt') this.trdSwitchAcct(saved);
+    } catch (e) {}
   },
 
   trdSwitchAcct(m) {
@@ -4075,8 +4112,7 @@ const App = {
     const lv = document.getElementById('trdPanel_lv');
     if (bt) bt.style.display = m === 'bt' ? '' : 'none';
     if (lv) lv.style.display = m === 'lv' ? '' : 'none';
-    const d = (this._trd || {})[m];
-    if (d && m === 'lv') this.trdRenderNav(d.snaps || [], m, (d.acc || {}).initial_cash);
+    if (m === 'lv') this.lvRenderModules();
     if (m === 'bt' && this._btEq) setTimeout(() => { try { this._btEq.resize(); } catch (e) {} }, 30);
   },
 
@@ -4086,31 +4122,371 @@ const App = {
       .then(r => r.json()).catch(() => null);
   },
 
-  async trdReset(mode) {
-    const label = mode === 'live' ? '实盘' : '回测';
-    const ok = window.confirm(
-      '确定清空' + label + '账本？\n\n持仓、成交记录、条件单、收益曲线、批次执行标记、计划股票池都会删除，' +
-      '资金回到初始值；' + (mode === 'live' ? '回测' : '实盘') + '账本不受影响。');
-    if (!ok) return;
-    const res = document.getElementById('trdPlanRes');
-    if (res) res.textContent = '正在清空' + label + '账本…';
-    const r = await this.trdFetch('/sim/reset', { method: 'POST', body: JSON.stringify({ mode: mode }) });
-    if (!r || !r.ok) {
-      if (res) res.textContent = label + '账本清空失败：' + ((r && r.reason) || '后端未响应');
-      this.trdFlash(label + '账本清空失败');
-      return;
-    }
-    this.trdFlash(label + '账本已清空');
-    if (res) res.textContent = '✓ ' + label + '账本已清空，已回到初始状态（初始资金 50 万，无持仓、无成交、无条件单）';
-    this.loadTrade();
+  lvModule(acct) {
+    const wrap = document.getElementById('lvAcctWrap');
+    return wrap ? wrap.querySelector('.lv-mod[data-acct="' + acct + '"]') : null;
   },
 
-  trdFlash(msg) {
-    const el = document.getElementById('trdJobTip');
+  lvFlash(mod, msg) {
+    // 模块内提示优先，没有就落到顶部实盘执行模块的提示位
+    const el = (mod && mod.querySelector('[data-role="mactip"]')) || document.getElementById('lvRunTip');
     if (!el) return;
     el.textContent = msg;
-    clearTimeout(this._trdFlashT);
-    this._trdFlashT = setTimeout(() => { el.textContent = ''; }, 6000);
+    clearTimeout(this._lvTipT);
+    this._lvTipT = setTimeout(() => { el.textContent = ''; }, 6000);
+  },
+
+  async trdReset(acct) {
+    const a = (this._lvAccts || []).filter(x => x.id === acct)[0];
+    const label = a ? ('实盘「' + a.name + '」') : '实盘';
+    const ok = window.confirm(
+      '确定清空' + label + '账本？\n\n持仓、成交记录、条件单、收益曲线、批次执行标记、计划股票池都会删除，' +
+      '资金回到初始值；其他实盘账户与回测账本不受影响。');
+    if (!ok) return;
+    const mod = this.lvModule(acct);
+    this.lvFlash(mod, '正在清空…');
+    const r = await this.trdFetch('/sim/reset',
+      { method: 'POST', body: JSON.stringify({ mode: 'live', acct: acct }) });
+    if (!r || !r.ok) {
+      this.lvFlash(mod, '清空失败：' + ((r && r.reason) || '后端未响应'));
+      return;
+    }
+    this.lvFlash(mod, '✓ 已清空，回到初始资金');
+    this.loadTrade();
+    if (window.StockKline && window.StockKline.reloadList) window.StockKline.reloadList();
+  },
+
+
+  // ---------- 实盘执行：选择 JSON → 立即执行 / 定时执行 ----------
+  _lvEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+
+  lvPickPlan(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      this._lvPlan = { name: file.name, text: String(rd.result || '') };
+      const tip = document.getElementById('lvPlanName');
+      if (tip) tip.textContent = file.name + ' · ' + this._lvPlan.text.length + ' 字符';
+    };
+    rd.readAsText(file, 'utf-8');
+  },
+
+  lvSyncSchedTop() {
+    const sched = ((document.getElementById('lvExecMode') || {}).value || 'now') === 'sched';
+    const t = ((document.getElementById('lvSchType') || {}).value) || 'interval';
+    const type = document.getElementById('lvSchType');
+    if (type) type.style.display = sched ? '' : 'none';
+    const show = (w, v) => document.querySelectorAll('#lvRunCard [data-w="' + w + '"]')
+      .forEach(x => { x.style.display = v ? '' : 'none'; });
+    show('schedopt', sched);
+    show('interval', sched && t === 'interval');
+    show('time', sched && t !== 'interval');
+    show('week', sched && t === 'weekly');
+    show('date', sched && t === 'once');
+    const d = document.getElementById('lvSchDate');
+    if (sched && t === 'once' && d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+  },
+
+  _lvPlanObj() {
+    const p = this._lvPlan;
+    if (!p || !p.text) { this.lvFlash(null, '请先选择 JSON 计划文件'); return null; }
+    let obj = null;
+    try { obj = JSON.parse(p.text); } catch (e) {
+      this.lvFlash(null, 'JSON 解析失败：' + e.message); return null;
+    }
+    if (!obj || !obj.batches) { this.lvFlash(null, '缺少 batches 数组'); return null; }
+    return obj;
+  },
+
+  async lvValidatePlan() {
+    if (!this._lvPlanObj()) return;
+    const res = document.getElementById('lvRunRes');
+    if (res) res.textContent = '校验中…';
+    const r = await this.trdFetch('/sim/plan/validate',
+      { method: 'POST', body: JSON.stringify({ content: this._lvPlan.text }) });
+    if (!r) { if (res) res.textContent = '后端未响应'; return; }
+    if (res) res.textContent = (r.ok ? '✓ 校验通过' : '✗ 校验失败') +
+      ' · ' + (r.batch_count || 0) + ' 个批次' +
+      (r.errors && r.errors.length ? '\n' + r.errors.join('\n') : '') +
+      '\n' + (r.batches || []).map(b =>
+        b.id + ' · ' + ((b.schedule && b.schedule.type) || '') + ' · ' + (b.items || []).length + ' 只').join('\n');
+  },
+
+  lvRunResultText(r) {
+    if (!r) return '后端未响应';
+    if (r.ok === false) {
+      return '失败：' + (r.reason || '') + (r.errors && r.errors.length ? '\n' + r.errors.join('\n') : '');
+    }
+    const lines = (r.results || []).map(x =>
+      (x.ok ? '✓' : '✗') + ' [' + (x.batch || '') + '] ' + (x.code || '') + ' ' +
+      (x.side === 'sell' ? '卖' : '买') + ' ' + (x.qty || 0) + '股 ' +
+      (x.fills && x.fills[0] ? ('@' + x.fills[0].price) : '') +
+      (x.reason ? (' · ' + x.reason) : ''));
+    const skip = (r.skipped || []).map(s => '— 跳过 ' + s.batch + '（' + s.reason + '）');
+    const rp = r.replay;
+    const replayLine = (rp && rp.days)
+      ? '↻ 历史回放 ' + rp.days + ' 个交易日（' + (rp.from || '') + ' → ' + (rp.to || '') + '）· 条件触发 ' +
+        (rp.conditions || 0) + ' 次 · 回放成交 ' + (rp.fills || 0) + ' 笔'
+      : '';
+    return ('模式 ' + r.mode + ' · 成交 ' + (r.success || 0) + ' / 失败 ' + (r.failed || 0)) +
+      (replayLine ? '\n' + replayLine : '') + '\n' + lines.concat(skip).join('\n');
+  },
+
+  async lvRunPlan() {
+    if (!this._lvPlanObj()) return;
+    const plan = this._lvPlan;
+    const sched = ((document.getElementById('lvExecMode') || {}).value || 'now') === 'sched';
+    const nameEl = document.getElementById('lvNewName');
+    const cashEl = document.getElementById('lvNewCash');
+    const tip = document.getElementById('lvRunTip');
+    const res = document.getElementById('lvRunRes');
+    const baseName = String(plan.name || '').replace(/\.json$/i, '').slice(0, 24);
+    const name = ((nameEl && nameEl.value) || '').trim() || baseName || '实盘账户';
+    const cash = parseFloat((cashEl && cashEl.value) || '') || 0;
+    const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    if (tip) tip.textContent = sched ? '正在创建实盘并保存定时任务…' : '正在创建实盘并执行…';
+    if (res) res.textContent = '';
+    // ① 新建独立实盘账本（记录来源 JSON 文件）
+    const cr = await this.trdFetch('/sim/accts', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create', name: name, cash: cash, plan_name: plan.name })
+    });
+    if (!cr || !cr.ok || !cr.created) {
+      if (tip) tip.textContent = '创建实盘失败：' + ((cr && cr.reason) || '后端未响应');
+      return;
+    }
+    const acct = cr.created.id;
+    const q = 'mode=live&acct=' + encodeURIComponent(acct);
+    if (!sched) {
+      // ② 立即在本实盘执行
+      const r = await this.trdFetch('/sim/plan/run?' + q, {
+        method: 'POST', body: JSON.stringify({ content: plan.text, mode: 'live', acct: acct })
+      });
+      if (res) res.textContent = this.lvRunResultText(r);
+      if (tip) tip.textContent = (r && r.ok !== false)
+        ? ('✓ ' + cr.created.name + ' 已创建并执行') : '执行失败：' + ((r && r.reason) || '后端未响应');
+    } else {
+      // ② 先把 JSON 落到服务端，再在该实盘登记定时任务
+      const up = await this.trdFetch('/sim/plan/upload', {
+        method: 'POST', body: JSON.stringify({ content: plan.text, name: plan.name })
+      });
+      if (!up || !up.ok) {
+        if (tip) tip.textContent = '保存 JSON 失败：' + ((up && up.reason) || '后端未响应');
+        return;
+      }
+      const st = val('lvSchType') || 'interval';
+      const jr = await this.trdFetch('/sim/plan/jobs?' + q, {
+        method: 'POST',
+        body: JSON.stringify({
+          file_path: up.path,
+          sched_type: st,
+          interval_min: parseInt(val('lvSchInterval') || '60', 10) || 60,
+          at_time: st === 'interval' ? '' : (val('lvSchTime') || '09:31'),
+          weekday: parseInt(val('lvSchWeek') || '0', 10),
+          run_date: st === 'once' ? val('lvSchDate') : '',
+          only_session: !!((document.getElementById('lvSchSession') || {}).checked),
+          enabled: !!((document.getElementById('lvSchEnabled') || {}).checked)
+        })
+      });
+      if (!jr || !jr.ok) {
+        if (tip) tip.textContent = '保存定时任务失败：' + ((jr && jr.reason) || '后端未响应');
+        return;
+      }
+      if (tip) tip.textContent = '✓ ' + cr.created.name + ' 已创建，定时任务已保存';
+    }
+    if (nameEl) nameEl.value = '';
+    if (cashEl) cashEl.value = '';
+    this._lvSig = null;
+    await this.loadTrade();
+    if (window.StockKline && window.StockKline.reloadList) window.StockKline.reloadList();
+  },
+
+  lvRunOnClick(e) {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.getAttribute('data-act');
+    const acct = el.getAttribute('data-acct');
+    const id = parseInt(el.getAttribute('data-id'), 10);
+    if (act === 'jrun') this.trdRunJob(acct, id);
+    else if (act === 'jdel') this.trdDelJob(acct, id);
+  },
+
+  async lvDeleteAcct(acct, name) {
+    const ok = window.confirm('确定删除实盘「' + (name || acct) + '」？\n\n该实盘的展示模块与个股行情子列表会一起消失，' +
+      '库文件（资金/持仓/成交/条件单/定时任务/日志）永久删除，无法恢复。');
+    if (!ok) return;
+    const r = await this.trdFetch('/sim/accts',
+      { method: 'POST', body: JSON.stringify({ action: 'delete', id: acct }) });
+    if (!r || !r.ok) { window.alert('删除失败：' + ((r && r.reason) || '后端未响应')); return; }
+    this._lvSig = null;
+    await this.loadTrade();
+    if (window.StockKline && window.StockKline.reloadList) window.StockKline.reloadList();
+  },
+
+  async lvRenameAcct(acct, old) {
+    const nm = (window.prompt('实盘名称（最多 24 字）', old) || '').trim();
+    if (!nm || nm === old) return;
+    const r = await this.trdFetch('/sim/accts',
+      { method: 'POST', body: JSON.stringify({ action: 'rename', id: acct, name: nm }) });
+    if (!r || !r.ok) { window.alert('改名失败：' + ((r && r.reason) || '后端未响应')); return; }
+    this._lvSig = null;
+    await this.loadTrade();
+    if (window.StockKline && window.StockKline.reloadList) window.StockKline.reloadList();
+  },
+
+  lvOnClick(e) {
+    const mod = e.target.closest('.lv-mod');
+    if (!mod) return;
+    const acct = mod.getAttribute('data-acct');
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.getAttribute('data-act');
+    if (act === 'reset') this.trdReset(acct);
+    else if (act === 'del') this.lvDeleteAcct(acct, mod.getAttribute('data-name'));
+    else if (act === 'rename') this.lvRenameAcct(acct, mod.getAttribute('data-name'));
+  },
+
+  lvModuleHtml(a) {
+    const sfx = 'lv_' + a.id, esc = s => this._lvEsc(s);
+    const src = a.plan_name || (a.plan_file ? String(a.plan_file).split(/[\\/]/).pop() : '');
+    return '' +
+      '<div class="lv-mod" data-acct="' + esc(a.id) + '" data-name="' + esc(a.name) + '">' +
+        '<div class="lv-mod-h">' +
+          '<div class="lv-mod-t">' +
+            '<span class="lv-name" data-act="rename" title="点击改名">' + esc(a.name) + '</span>' +
+            '<span class="lv-tag">独立账本</span>' +
+            (src ? '<span class="lv-tag" title="来源计划文件">' + esc(src) + '</span>' : '') +
+            '<span class="trd-sub" data-role="summary"></span>' +
+            '<span class="trd-sub" data-role="mactip"></span>' +
+          '</div>' +
+          '<div class="lv-mod-ops">' +
+            '<button class="trd-btn ghost" data-act="reset">清空账本</button>' +
+            (a.builtin ? '' : '<button class="trd-btn ghost" data-act="del">删除实盘</button>') +
+          '</div>' +
+        '</div>' +
+        '<div class="trd-kpis" id="trdKpis_' + sfx + '"></div>' +
+        '<div class="trd-card">' +
+          '<div class="trd-card-h"><span>累计收益曲线</span><span class="trd-sub" id="trdNavInfo_' + sfx + '"></span></div>' +
+          '<div class="trd-chart" id="trdNavChart_' + sfx + '"></div>' +
+        '</div>' +
+        '<div class="trd-card">' +
+          '<div class="trd-card-h"><span>持仓</span><span class="trd-sub" id="trdPosCnt_' + sfx + '"></span></div>' +
+          '<div class="trd-scroll trd-pos-wrap" id="trdPos_' + sfx + '"></div>' +
+        '</div>' +
+        '<div class="trd-grid">' +
+          '<div class="trd-card">' +
+            '<div class="trd-card-h"><span>成交记录</span><span class="trd-sub" id="trdTradeCnt_' + sfx + '"></span></div>' +
+            '<div class="trd-scroll" id="trdTrades_' + sfx + '"></div>' +
+          '</div>' +
+          '<div class="trd-card">' +
+            '<div class="trd-card-h"><span>条件单</span><span class="trd-sub" id="trdCondCnt_' + sfx + '"></span></div>' +
+            '<div class="trd-scroll" id="trdConds_' + sfx + '"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  },
+
+  lvRenderModules() {
+    const wrap = document.getElementById('lvAcctWrap');
+    if (!wrap) return;
+    const accts = this._lvAccts;
+    if (!accts) {
+      wrap.innerHTML = '<div class="lv-empty">正在加载实盘账本…</div>';
+      return;
+    }
+    if (!accts.length) {
+      wrap.innerHTML = '<div class="lv-empty">暂无实盘账本，选择批次计划 JSON 后点「创建实盘并执行」</div>';
+      this._lvSig = '';
+      return;
+    }
+    const sig = accts.map(a => a.id + ':' + a.name + ':' + (a.plan_name || '')).join('|');
+    if (sig !== this._lvSig) {
+      this._lvSig = sig;
+      wrap.innerHTML = accts.map(a => this.lvModuleHtml(a)).join('');
+    }
+    let totalNav = 0;
+    accts.forEach(a => {
+      const d = ((this._trd || {}).lv || {})[a.id];
+      if (!d) return;
+      const sfx = 'lv_' + a.id;
+      const mod = wrap.querySelector('.lv-mod[data-acct="' + a.id + '"]');
+      if (mod) {
+        const sum = mod.querySelector('[data-role="summary"]');
+        if (sum) {
+          const nav = Number(d.acc.nav || 0), pct = Number(d.acc.total_return_pct || 0);
+          sum.textContent = '总资产 ' + nav.toFixed(2) + ' · 累计 ' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+        }
+      }
+      totalNav += Number(d.acc.nav || 0);
+      this.trdRenderKpi(d.acc, sfx, d.snaps, d.trades);
+      this.trdRenderPos(d.acc.positions || [], d.conds, sfx);
+      this.trdRenderConds(d.conds, sfx);
+      this.trdRenderTrades(d.trades, sfx);
+      if (this._trdAcct === 'lv') this.trdRenderNav(d.snaps, sfx, d.acc.initial_cash);
+    });
+    const sub = document.getElementById('trdTabSub_lv');
+    if (sub) sub.textContent = accts.length + ' 个 · ' + (totalNav / 10000).toFixed(2) + ' 万';
+  },
+
+  // 定时任务汇总：跨所有实盘账户（任务本身仍存在各自账本里）
+  lvRenderJobsAll() {
+    const el = document.getElementById('lvJobsAll');
+    if (!el) return;
+    const rows = [];
+    (this._lvAccts || []).forEach(a => {
+      const d = ((this._trd || {}).lv || {})[a.id];
+      (d && d.jobs ? d.jobs : []).forEach(j => rows.push({ a: a, j: j }));
+    });
+    if (!rows.length) {
+      el.innerHTML = '<div class="trd-sub" style="padding:8px 0">暂无定时任务。选择 JSON 并把执行方式切到「定时执行」即可创建。</div>';
+      return;
+    }
+    el.innerHTML = rows.map(x => {
+      const j = x.j;
+      const last = j.last_run ? ('上次 ' + String(j.last_run).slice(5, 16)) : '未执行';
+      const name = String(j.file_path || '').split(/[\\/]/).pop();
+      const esc = s => this._lvEsc(s);
+      return '<div class="trd-task"><div><div class="nm">' + esc(x.a.name) + ' · ' + esc(name) +
+        '</div><div class="meta">' + this.trdSchedDesc(j) + ' · ' +
+        (j.only_session ? '仅交易时段' : '全天') + ' · ' + last +
+        (j.last_result ? ' · ' + esc(j.last_result) : '') + (j.enabled ? '' : ' · 已停用') +
+        '</div></div><div class="ops">' +
+        '<b data-act="jrun" data-acct="' + esc(x.a.id) + '" data-id="' + j.id + '">执行</b>' +
+        '<b data-act="jdel" data-acct="' + esc(x.a.id) + '" data-id="' + j.id + '">删</b>' +
+        '</div></div>';
+    }).join('');
+  },
+
+  // 执行日志汇总：所有实盘账户的批次计划 / 定时任务记录
+  lvRenderLogsAll() {
+    const el = document.getElementById('lvLogsAll');
+    if (!el) return;
+    const rows = [];
+    (this._lvAccts || []).forEach(a => {
+      const d = ((this._trd || {}).lv || {})[a.id];
+      (d && d.logs ? d.logs : []).forEach(l => rows.push({ name: a.name, l: l }));
+    });
+    if (!rows.length) {
+      el.innerHTML = '<div style="padding:18px;text-align:center;color:#7d8794;font-size:12px">暂无执行记录</div>';
+      return;
+    }
+    rows.sort((x, y) => String(y.l.ts || '').localeCompare(String(x.l.ts || '')));
+    let h = '<table class="trd-tbl"><thead><tr><th>时间</th><th>实盘</th><th>来源</th><th>触发</th><th>目标</th><th>成功</th><th>失败</th></tr></thead><tbody>';
+    rows.slice(0, 80).forEach(x => {
+      const l = x.l;
+      h += '<tr><td>' + String(l.ts || '').replace('T', ' ').slice(5, 19) +
+        '</td><td class="ttl">' + this._lvEsc(x.name) +
+        '</td><td class="mute">' + (l.source || '') +
+        '</td><td class="mute">' + (l.trigger_name || '') +
+        '</td><td class="mute" title="' + String(l.target || '').replace(/"/g, '') + '">' + String(l.target || '').slice(0, 26) +
+        '</td><td>' + (l.success || 0) +
+        '</td><td>' + (l.fail || 0) + '</td></tr>';
+    });
+    el.innerHTML = h + '</tbody></table>';
   },
 
   // ---------- 回测结果浏览（backtrader / SuperPlot 导出 JSON） ----------
@@ -4165,13 +4541,23 @@ const App = {
     }
     this._bt = d;
     const st = d.strategy || {}, m = d.metrics || {};
+    const codes = d.codes || [];
+    let codeTxt;
+    if (codes.length) {
+      codeTxt = ' · ' + codes.map(c => c.code + (c.name ? '(' + c.name + ')' : '')).join('、') +
+        (codes.length > 1 ? ' · 共 ' + codes.length + ' 只' : '');
+    } else {
+      codeTxt = ' · 未绑定标的（K 线不显示买卖点，需在 JSON 顶层或每笔委托加 code）';
+    }
     if (metaEl) metaEl.textContent = (st.name || d.file) + (st.timeframe ? ' · ' + st.timeframe : '') +
-      (st.code ? ' · ' + st.code : ' · 未绑定标的（K 线不显示买卖点，需在 JSON 顶层加 code）') + ' · ' + (d.orders || []).length + ' 笔成交';
+      codeTxt + ' · ' + (d.orders || []).length + ' 笔成交';
     const sub = document.getElementById('trdTabSub_bt');
     if (sub) sub.textContent = (m.total_roi === undefined || m.total_roi === null) ? '结果浏览' : this._btPct(m.total_roi, false);
     this.btRenderKpi(d);
     this.btRenderEquity(d);
     this.btRenderTrades(d.orders || []);
+    // 切换文件后同步个股行情页「回测」列表与 K 线买卖点
+    if (window.StockKline && window.StockKline.reloadList) window.StockKline.reloadList();
   },
 
   btRenderKpi(d) {
@@ -4196,7 +4582,30 @@ const App = {
     el.innerHTML = items.map(x => '<div class="trd-kpi"><span>' + x[0] + '</span><b style="' + (x[2] || '') + '">' + x[1] + '</b></div>').join('');
   },
 
+  _btIndices: [
+    { code: '000001', name: '上证指数' },
+    { code: '399001', name: '深证成指' },
+    { code: '399006', name: '创业板指' },
+    { code: '000688', name: '科创50' },
+    { code: '000016', name: '上证50' },
+    { code: '000300', name: '沪深300' },
+    { code: '000905', name: '中证500' },
+    { code: '000852', name: '中证1000' },
+    { code: '932000', name: '中证2000' }
+  ],
+  _btIdxColors: ['#4f9cf9', '#f5a623', '#7ed321', '#bd10e0', '#50e3c2', '#c9a227', '#f8e71c', '#d0021b', '#8b572a'],
+
   btRenderEquity(d) {
+    if (d && d.equity) this._btEqData = d;
+    const view = this._btEqView || 'amount';
+    document.querySelectorAll('#btEqSeg button').forEach(b => b.classList.toggle('on', b.getAttribute('data-v') === view));
+    const wrap = document.getElementById('btIdxWrap');
+    if (wrap) wrap.style.display = view === 'return' ? 'inline-block' : 'none';
+    if (view === 'return') this._btRenderEquityReturn(this._btEqData || {});
+    else this._btRenderEquityAmount(this._btEqData || {});
+  },
+
+  _btRenderEquityAmount(d) {
     const el = document.getElementById('btEqChart');
     const info = document.getElementById('btEqInfo');
     if (!el) return;
@@ -4240,20 +4649,127 @@ const App = {
     } catch (e) { /* ECharts 不可用时保持空白，不影响其他模块 */ }
   },
 
+  async _btRenderEquityReturn(d) {
+    const el = document.getElementById('btEqChart');
+    const info = document.getElementById('btEqInfo');
+    if (!el) return;
+    const pts = (d.equity || []).filter(p => p && p.t != null && p.v != null);
+    if (!pts.length) {
+      el.innerHTML = '<div style="padding:52px 0;text-align:center;color:#7d8794;font-size:12px">该文件没有 portfolio_data，无法绘制累计收益率</div>';
+      if (info) info.textContent = '';
+      return;
+    }
+    const dates = pts.map(p => String(p.t).slice(0, 10));
+    const base = Number(pts[0].v) || 0;
+    const selfSeries = pts.map(p => base ? (Number(p.v) / base - 1) * 100 : 0);
+    const selfRet = selfSeries.length ? selfSeries[selfSeries.length - 1] : 0;
+    const sel = this._btIdxSel || [];
+    this._btRenderIdxPanel();
+    // 按文件区间估算指数所需的交易日跨度
+    const span = Math.max(1, Math.round((new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000));
+    const days = Math.max(120, Math.min(1500, Math.ceil(span * 0.78) + 80));
+    const idxRaw = await Promise.all(sel.map(c =>
+      this.trdFetch('/index/' + c + '/kline?days=' + days).then(r => (Array.isArray(r) ? r : []))));
+    const series = [{ name: '本文件', data: selfSeries, color: '#e5544b' }];
+    sel.forEach((c, i) => {
+      const nm = (this._btIndices.find(x => x.code === c) || {}).name || c;
+      const vals = this._btAlignIndex(idxRaw[i], dates);
+      if (vals) series.push({ name: nm, data: vals, color: this._btIdxColors[i % this._btIdxColors.length] });
+    });
+    if (info) info.textContent = '累计收益率 · 本文件 ' + (selfRet >= 0 ? '+' : '') + selfRet.toFixed(2) + '%' +
+      (sel.length ? ' · 对比 ' + sel.length + ' 个指数' : ' · 可在右侧选择对比指数');
+    if (!window.echarts) return;
+    try {
+      const inst = this._btEq || (this._btEq = window.echarts.init(el));
+      inst.setOption({
+        animation: false,
+        legend: { data: series.map(s => s.name), top: 0, type: 'scroll', textStyle: { color: '#b2b5be', fontSize: 11 } },
+        grid: { left: 56, right: 18, top: 32, bottom: 34 },
+        tooltip: {
+          trigger: 'axis', backgroundColor: 'rgba(20,26,36,.95)', borderColor: '#2c3542',
+          textStyle: { color: '#dfe4ea', fontSize: 12 },
+          valueFormatter: v => (Number(v) || 0).toFixed(2) + '%'
+        },
+        xAxis: {
+          type: 'category', data: dates, boundaryGap: false,
+          axisLine: { lineStyle: { color: '#2c3542' } }, axisTick: { show: false },
+          axisLabel: { color: '#8c96a5', fontSize: 10, hideOverlap: true }
+        },
+        yAxis: {
+          type: 'value', scale: true, axisLine: { show: false }, axisTick: { show: false },
+          axisLabel: { color: '#8c96a5', fontSize: 10, formatter: v => Number(v).toFixed(1) + '%' },
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,.06)' } }
+        },
+        dataZoom: [{ type: 'inside' }],
+        series: series.map(s => ({
+          name: s.name, type: 'line', data: s.data, symbol: 'none',
+          lineStyle: { width: s.name === '本文件' ? 1.8 : 1.2, color: s.color },
+          itemStyle: { color: s.color },
+          z: s.name === '本文件' ? 3 : 2
+        }))
+      }, true);
+    } catch (e) { /* ECharts 不可用时保持空白，不影响其他模块 */ }
+  },
+
+  // 把指数收盘价对齐到权益曲线日期，换算成区间累计收益率(%)
+  _btAlignIndex(arr, dates) {
+    const a = (arr || []).filter(k => k && k.date && Number(k.close) > 0);
+    if (!a.length || !dates.length) return null;
+    let base = null, p = 0;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i].date <= dates[0]) { base = Number(a[i].close); p = i; } else break;
+    }
+    if (base == null) { base = Number(a[0].close); p = 0; }
+    if (!base) return null;
+    const out = [];
+    let j = p;
+    for (let k = 0; k < dates.length; k++) {
+      while (j + 1 < a.length && a[j + 1].date <= dates[k]) j++;
+      out.push((Number(a[j].close) / base - 1) * 100);
+    }
+    return out;
+  },
+
+  _btRenderIdxPanel() {
+    const panel = document.getElementById('btIdxPanel');
+    if (!panel) return;
+    const sel = this._btIdxSel || [];
+    panel.innerHTML = this._btIndices.map((x, i) =>
+      '<label><input type="checkbox" data-ic="' + x.code + '"' + (sel.indexOf(x.code) >= 0 ? ' checked' : '') + '>' +
+      '<span style="color:' + this._btIdxColors[i % this._btIdxColors.length] + '">■</span>' + x.name + '</label>'
+    ).join('');
+    panel.querySelectorAll('input[data-ic]').forEach(cb => {
+      cb.onchange = () => {
+        const c = cb.getAttribute('data-ic');
+        let arr = this._btIdxSel || [];
+        if (cb.checked) { if (arr.indexOf(c) < 0) arr = arr.concat([c]); }
+        else arr = arr.filter(x => x !== c);
+        this._btIdxSel = arr;
+        localStorage.setItem('ak_bt_idx', JSON.stringify(arr));
+        this.btRenderEquity(this._btEqData || {});
+      };
+    });
+  },
+
   btRenderTrades(orders) {
     const el = document.getElementById('btTrades');
     const cnt = document.getElementById('btTradeCnt');
     if (!el) return;
-    if (cnt) cnt.textContent = (orders || []).length + ' 笔买卖';
-    if (!orders || !orders.length) {
+    const list = orders || [];
+    const codes = [];
+    list.forEach(o => { const c = String(o.code || '').trim(); if (c && codes.indexOf(c) < 0) codes.push(c); });
+    if (cnt) cnt.textContent = list.length + ' 笔买卖' + (codes.length > 1 ? ' · ' + codes.length + ' 只股票' : '');
+    if (!list.length) {
       el.innerHTML = '<div style="padding:22px;text-align:center;color:#7d8794;font-size:12px">该文件没有 orders_data</div>';
       return;
     }
-    let h = '<table class="trd-tbl"><thead><tr><th>时间</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>持仓</th></tr></thead><tbody>';
-    orders.forEach(o => {
+    let h = '<table class="trd-tbl"><thead><tr><th>时间</th><th>股票代码</th><th>股票名称</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>持仓</th></tr></thead><tbody>';
+    list.forEach(o => {
       const buy = String(o.type || '').toLowerCase() === 'buy';
       const dt = String(o.datetime || '').replace('T', ' ');
       h += '<tr><td class="mute">' + dt.slice(0, 16) +
+        '</td><td class="ttl">' + (o.code || '-') +
+        '</td><td class="ttl">' + (o.name || '-') +
         '</td><td class="' + (buy ? 'up' : 'down') + '">' + (buy ? '买入' : '卖出') +
         '</td><td>' + (Number(o.price) || 0).toFixed(3) +
         '</td><td>' + (o.size == null ? '-' : Math.abs(Number(o.size)).toFixed(2)) +
@@ -4269,7 +4785,7 @@ const App = {
     const f = sel && sel.value;
     if (!f) return;
     const r = await this.trdFetch('/bt/pin', { method: 'POST', body: JSON.stringify({ file: f }) });
-    this.trdFlash(r && r.ok ? '已暂存：' + f : '暂存失败');
+    if (!r || !r.ok) window.alert('暂存失败：' + ((r && r.reason) || '后端未响应'));
     this.loadBtPins();
   },
 
@@ -4307,44 +4823,51 @@ const App = {
   },
 
   async loadTrade() {
-    const modes = [['bt', 'backtest'], ['lv', 'live']];
-    const out = {};
-    await Promise.all(modes.map(async (pair) => {
-      const m = pair[0], q = pair[1];
-      const [acc, cond, nav, trades, logs] = await Promise.all([
-        this.trdFetch('/sim/account?mode=' + q),
-        this.trdFetch('/sim/cond?status=active&mode=' + q),
-        this.trdFetch('/sim/nav?mode=' + q),
-        this.trdFetch('/sim/trades?limit=200&mode=' + q),
-        this.trdFetch('/sim/auto/logs?limit=30&mode=' + q)
-      ]);
-      out[m] = {
+    // 回测账本（回测 tab 直接读结果 JSON，这里只做后端连通性兜底）
+    const [acc, cond, nav, trades, logs] = await Promise.all([
+      this.trdFetch('/sim/account?mode=backtest'),
+      this.trdFetch('/sim/cond?status=active&mode=backtest'),
+      this.trdFetch('/sim/nav?mode=backtest'),
+      this.trdFetch('/sim/trades?limit=200&mode=backtest'),
+      this.trdFetch('/sim/auto/logs?limit=30&mode=backtest')
+    ]);
+    this._trd = {
+      bt: {
         acc: acc || {},
         conds: (cond || {}).cond_orders || [],
         snaps: (nav || {}).snapshots || [],
         trades: (trades || {}).trades || [],
         logs: (logs || {}).logs || []
+      }
+    };
+    // 实盘账户清单 → 每个账户独立取数（acct 参数隔离各自账本）
+    const ar = await this.trdFetch('/sim/accts');
+    const accts = (ar && ar.accts) || [];
+    this._lvAccts = accts;
+    const lv = {};
+    await Promise.all(accts.map(async (a) => {
+      const q = 'mode=live&acct=' + encodeURIComponent(a.id);
+      const [acc2, cond2, nav2, tr2, lg2, jb2] = await Promise.all([
+        this.trdFetch('/sim/account?' + q),
+        this.trdFetch('/sim/cond?status=active&' + q),
+        this.trdFetch('/sim/nav?' + q),
+        this.trdFetch('/sim/trades?limit=200&' + q),
+        this.trdFetch('/sim/auto/logs?limit=30&' + q),
+        this.trdFetch('/sim/plan/jobs?' + q)
+      ]);
+      lv[a.id] = {
+        acc: acc2 || {},
+        conds: (cond2 || {}).cond_orders || [],
+        snaps: (nav2 || {}).snapshots || [],
+        trades: (tr2 || {}).trades || [],
+        logs: (lg2 || {}).logs || [],
+        jobs: (jb2 || {}).jobs || []
       };
     }));
-    const jobs = await this.trdFetch('/sim/plan/jobs');
-    this._trd = out;
-    this._trdJobs = (jobs || {}).jobs || [];
-    this._trdInSession = (jobs || {}).in_session;
-    modes.forEach((pair) => {
-      const m = pair[0];
-      const d = out[m];
-      if (m === 'lv') {
-        this.trdRenderKpi(d.acc, 'lv', d.snaps, d.trades);
-        this.trdRenderPos(d.acc.positions || [], d.conds, 'lv');
-        this.trdRenderConds(d.conds, 'lv');
-        this.trdRenderTrades(d.trades, 'lv');
-        this.trdRenderLogs(d.logs, 'lv');
-      }
-      const sub = document.getElementById('trdTabSub_' + m);
-      if (sub && m === 'lv') sub.textContent = ((d.acc.nav || 0) / 10000).toFixed(2) + ' 万';
-    });
-    if (this._trdAcct === 'lv') this.trdRenderNav(out.lv.snaps, 'lv', out.lv.acc.initial_cash);
-    this.trdRenderJobs(this._trdJobs);
+    this._trd.lv = lv;
+    this.lvRenderModules();
+    this.lvRenderJobsAll();
+    this.lvRenderLogsAll();
   },
 
   trdRenderKpi(acc, mode, snaps, trades) {
@@ -4577,145 +5100,21 @@ const App = {
     return '每 ' + (j.interval_min || 60) + ' 分钟';
   },
 
-  trdRenderJobs(list) {
-    const el = document.getElementById('trdJobs');
-    if (!el) return;
-    if (!list || !list.length) {
-      el.innerHTML = '<div class="trd-sub" style="padding:8px 0">暂无定时实盘任务</div>';
-      return;
-    }
-    el.innerHTML = list.map(j => {
-      const last = j.last_run ? ('上次 ' + String(j.last_run).slice(5, 16)) : '未执行';
-      const name = String(j.file_path || '').split(/[\\/]/).pop();
-      return '<div class="trd-task"><div><div class="nm">' + name +
-        '</div><div class="meta">' + this.trdSchedDesc(j) + ' · ' +
-        (j.only_session ? '仅交易时段' : '全天') + ' · ' + last +
-        (j.last_result ? ' · ' + j.last_result : '') + (j.enabled ? '' : ' · 已停用') +
-        '</div></div><div class="ops"><b data-jrun="' + j.id + '">执行</b><b data-jdel="' + j.id + '">删</b></div></div>';
-    }).join('');
-    el.querySelectorAll('[data-jrun]').forEach(b => {
-      b.onclick = async () => {
-        const r = await this.trdFetch('/sim/plan/jobs/run', { method: 'POST', body: JSON.stringify({ id: +b.getAttribute('data-jrun') }) });
-        this.trdFlash(r ? ('执行完成：成功 ' + (r.success || 0) + ' / 跳过 ' + ((r.skipped || []).length)) : '后端未响应');
-        this.loadTrade();
-      };
-    });
-    el.querySelectorAll('[data-jdel]').forEach(b => {
-      b.onclick = async () => {
-        await this.trdFetch('/sim/plan/jobs/delete', { method: 'POST', body: JSON.stringify({ id: +b.getAttribute('data-jdel') }) });
-        this.loadTrade();
-      };
-    });
-  },
-
-  trdRenderLogs(list, mode) {
-    const el = document.getElementById('trdLogs_' + mode);
-    if (!el) return;
-    if (!list.length) {
-      el.innerHTML = '<div style="padding:18px;text-align:center;color:#7d8794;font-size:12px">暂无执行记录</div>';
-      return;
-    }
-    let h = '<table class="trd-tbl"><thead><tr><th>时间</th><th>来源</th><th>触发</th><th>目标</th><th>成功</th><th>失败</th></tr></thead><tbody>';
-    list.forEach(l => {
-      h += '<tr><td>' + String(l.ts || '').replace('T', ' ').slice(5, 19) +
-        '</td><td class="mute">' + (l.source || '') +
-        '</td><td class="mute">' + (l.trigger_name || '') +
-        '</td><td class="mute" title="' + String(l.target || '').replace(/"/g, '') + '">' + String(l.target || '').slice(0, 26) +
-        '</td><td>' + (l.success || 0) +
-        '</td><td>' + (l.fail || 0) + '</td></tr>';
-    });
-    el.innerHTML = h + '</tbody></table>';
-  },
-
-  async trdPlan(action) {
-    const $ = id => document.getElementById(id);
-    const res = $('trdPlanRes');
-    const text = this._trdPlanText || '';
-    if (!text) { if (res) res.textContent = '请先选择 JSON 批次计划文件'; return; }
-    let obj = null;
-    try { obj = JSON.parse(text); } catch (e) {
-      if (res) res.textContent = 'JSON 解析失败：' + e.message; return;
-    }
-    if (!obj || !obj.batches) { if (res) res.textContent = '缺少 batches 数组'; return; }
-    const mode = 'live';
-    const resData = { content: text, mode: mode, path: '' };
-    this.trdSwitchAcct('lv');
-    if (res) res.textContent = (action === 'validate' ? '校验中…' : '执行中…（实盘账户）');
-    const r = await this.trdFetch('/sim/plan/' + action,
-      { method: 'POST', body: JSON.stringify(resData) });
-    if (!r) { if (res) res.textContent = '后端未响应'; return; }
-    if (action === 'validate') {
-      if (res) res.textContent = (r.ok ? '✓ 校验通过' : '✗ 校验失败') +
-        ' · ' + (r.batch_count || 0) + ' 个批次' +
-        (r.errors && r.errors.length ? '\n' + r.errors.join('\n') : '') +
-        '\n' + (r.batches || []).map(b =>
-          b.id + ' · ' + ((b.schedule && b.schedule.type) || '') + ' · ' + (b.items || []).length + ' 只').join('\n');
-      return;
-    }
-    const lines = (r.results || []).map(x =>
-      (x.ok ? '✓' : '✗') + ' [' + (x.batch || '') + '] ' + (x.code || '') + ' ' +
-      (x.side === 'sell' ? '卖' : '买') + ' ' + (x.qty || 0) + '股 ' +
-      (x.fills && x.fills[0] ? ('@' + x.fills[0].price) : '') +
-      (x.reason ? (' · ' + x.reason) : ''));
-    const skip = (r.skipped || []).map(s => '— 跳过 ' + s.batch + '（' + s.reason + '）');
-    const rp = r.replay;
-    const replayLine = (rp && rp.days)
-      ? '↻ 历史回放 ' + rp.days + ' 个交易日（' + (rp.from || '') + ' → ' + (rp.to || '') + '）· 条件触发 ' +
-        (rp.conditions || 0) + ' 次 · 回放成交 ' + (rp.fills || 0) + ' 笔'
-      : '';
-    if (res) res.textContent = (r.ok === false
-      ? ('失败：' + (r.reason || '') + (r.errors && r.errors.length ? '\n' + r.errors.join('\n') : ''))
-      : ('模式 ' + r.mode + ' · 成交 ' + (r.success || 0) + ' / 失败 ' + (r.failed || 0))) +
-      (replayLine ? '\n' + replayLine : '') +
-      '\n' + lines.concat(skip).join('\n');
+  async trdRunJob(acct, id) {
+    if (!id) return;
+    const r = await this.trdFetch('/sim/plan/jobs/run?mode=live&acct=' + encodeURIComponent(acct),
+      { method: 'POST', body: JSON.stringify({ id: id }) });
+    this.lvFlash(this.lvModule(acct),
+      r ? ('执行完成：成功 ' + (r.success || 0) + ' / 跳过 ' + ((r.skipped || []).length)) : '后端未响应');
     this.loadTrade();
+    if (window.StockKline && window.StockKline.reloadList) window.StockKline.reloadList();
   },
 
-  trdSyncSched() {
-    const $ = id => document.getElementById(id);
-    const t = (($('trdJobSched') || {}).value || 'interval');
-    const show = (id, v) => { const el = $(id); if (el) el.style.display = v ? '' : 'none'; };
-    show('trdJobIntervalWrap', t === 'interval');
-    show('trdJobTimeWrap', t !== 'interval');
-    show('trdJobWeekWrap', t === 'weekly');
-    show('trdJobDateWrap', t === 'once');
-    const d = $('trdJobDate');
-    if (t === 'once' && d && !d.value) {
-      const n = new Date();
-      d.value = n.toISOString().slice(0, 10);
-    }
-  },
-
-  async trdSaveJob() {
-    const $ = id => document.getElementById(id);
-    const fp = (($('trdJobFile') || {}).value || '').trim();
-    if (!fp) { this.trdFlash('请填写批次计划文件路径'); return; }
-    const sched = ($('trdJobSched') || {}).value || 'interval';
-    const at = (($('trdJobTime') || {}).value || '09:31');
-    if (sched !== 'interval' && !at) { this.trdFlash('请填写执行时刻'); return; }
-    if (sched === 'once' && !(($('trdJobDate') || {}).value || '').trim()) {
-      this.trdFlash('请选择执行日期'); return;
-    }
-    const r = await this.trdFetch('/sim/plan/jobs', {
-      method: 'POST',
-      body: JSON.stringify({
-        file_path: fp,
-        sched_type: sched,
-        interval_min: parseInt(($('trdJobInterval') || {}).value || '60', 10) || 60,
-        at_time: sched === 'interval' ? '' : at,
-        weekday: parseInt(($('trdJobWeek') || {}).value || '0', 10),
-        run_date: sched === 'once' ? (($('trdJobDate') || {}).value || '') : '',
-        only_session: !!($('trdJobSession') || {}).checked,
-        enabled: !!($('trdJobEnabled') || {}).checked
-      })
-    });
-    if (r && r.ok) {
-      this.trdFlash('已保存定时实盘任务');
-      if ($('trdJobFile')) $('trdJobFile').value = '';
-      this.loadTrade();
-    } else {
-      this.trdFlash('保存失败：' + ((r && r.reason) || '后端未响应'));
-    }
+  async trdDelJob(acct, id) {
+    if (!id) return;
+    await this.trdFetch('/sim/plan/jobs/delete?mode=live&acct=' + encodeURIComponent(acct),
+      { method: 'POST', body: JSON.stringify({ id: id }) });
+    this.loadTrade();
   },
 
   // ===== 页面：因子透视 =====
@@ -7790,7 +8189,7 @@ document.addEventListener('DOMContentLoaded', () => App.init());
   }
 })();
 </script>
-<script src="vendor/klinecharts/stock-kline.js?v=217"></script>
+<script src="vendor/klinecharts/stock-kline.js?v=225"></script>
 
 </body>
 </html>

@@ -6,6 +6,7 @@ bt_indicator_bridge.py — backtrader 指标桥
 
 输入 df（列：trade_date, open, high, low, close, vol, amount，升序）
 输出 dict：结构与 stock_indicators.calc_indicators 完全一致（uma/supertrend/vidya/macd/rsi/kdj/obv/xtr/bb_score/vol_ma5/vol_ma10），
+另附 prtrend（本项目 indicators/PRTrend.py 周期回归趋势线）供个股行情页主图叠加，
 前端 /api/stock/indicators 消费者零改动。
 
 实现要点：
@@ -17,6 +18,8 @@ bt_indicator_bridge.py — backtrader 指标桥
   6) 异常时由调用方（server.py）回退 stock_indicators
 """
 import sys
+import os
+import importlib.util
 import numpy as np
 import pandas as pd
 import backtrader as bt
@@ -42,6 +45,50 @@ from my_bt_indicator.indicators import bb_trend_score as _bb_mod
 _UMA_COLORS = ['#2196F3', '#4CAF50', '#9E9E9E']
 
 
+def _load_file_indicator(filename, module_name):
+    """按文件路径加载本项目 indicators/ 下的指标模块。
+
+    不能走 `from indicators.xxx import ...`：indicators/__init__.py 里
+    `from .SuperTemplate import *` 等依赖本机并不存在的模块，包导入会直接失败。
+    """
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'indicators', filename)
+    if not os.path.exists(path):
+        return None
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    # 必须先登记到 sys.modules：backtrader 的元类会按 cls.__module__ 回查 sys.modules，
+    # 否则实例化指标时报 KeyError: 'local_xxx'
+    sys.modules[module_name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+try:
+    _prt_mod = _load_file_indicator('PRTrend.py', 'local_prtrend')
+except Exception as _e:  # 指标文件异常不应拖垮整个桥（其余指标仍要能算）
+    print('[bt_bridge] PRTrend 加载失败: %s' % _e)
+    _prt_mod = None
+
+PeriodRegressionTrend = getattr(_prt_mod, 'PeriodRegressionTrend', None)
+_PRT_FIELD_PRESETS = getattr(_prt_mod, 'FIELD_PRESETS', {'HL': ('high', 'low')})
+
+
+def _norm_prt_periods(val):
+    """周期归一化：整数、≥2、去重、最多 3 个；非法值回退 (5, 20, 60)"""
+    try:
+        seq = list(val) if isinstance(val, (list, tuple)) else [val]
+        ps = [int(float(x)) for x in seq]
+    except (TypeError, ValueError):
+        return (5, 20, 60)
+    out = []
+    for x in ps:
+        if x >= 2 and x not in out:
+            out.append(x)
+    return tuple(out[:3]) or (5, 20, 60)
+
+
 class BridgeStrategy(bt.Strategy):
     """桥策略：挂载全部 my_bt_indicator 指标，逐根运行（next 为空即可，数据在 run 后导出）"""
 
@@ -56,6 +103,8 @@ class BridgeStrategy(bt.Strategy):
         ('macd_fast', 12), ('macd_slow', 26), ('macd_signal', 9),
         ('bb_period', 50), ('bb_dev', 2.0), ('bb_roc', 5), ('bb_acc', 3), ('bb_roll', 60),
         ('bb_w_nbbw', 0.5), ('bb_w_roc', 0.3), ('bb_w_acc', 0.2),
+        ('prt_periods', (5, 20, 60)), ('prt_field_pair', 'HL'),
+        ('prt_show_cross', True), ('prt_extend_forward', 0),
     )
 
     def __init__(self):
@@ -78,6 +127,18 @@ class BridgeStrategy(bt.Strategy):
                                        roc_period=p.bb_roc, acc_period=p.bb_acc, roll_window=p.bb_roll,
                                        w_nbbw=p.bb_w_nbbw, w_roc=p.bb_w_roc, w_acc=p.bb_w_acc),
         }
+        # 周期回归趋势线（本项目 indicators/PRTrend.py）：参数非法时跳过该指标，不影响其余指标
+        self.inds['prt'] = None
+        if PeriodRegressionTrend is not None:
+            pair = str(p.prt_field_pair or 'HL').upper()
+            if pair not in _PRT_FIELD_PRESETS:
+                pair = 'HL'
+            try:
+                self.inds['prt'] = PeriodRegressionTrend(
+                    d, periods=_norm_prt_periods(p.prt_periods), field_pair=pair,
+                    show_cross=bool(p.prt_show_cross), extend_forward=p.prt_extend_forward)
+            except Exception as e:
+                print('[bt_bridge] PRTrend 初始化失败: %s' % e)
 
     def next(self):
         pass  # 逐根驱动即可，结果统一从 lines.array 导出
@@ -169,7 +230,11 @@ def calc_bt_indicators(df, params=None):
                         bb_roc=p.get('roc_period', 5), bb_acc=p.get('acc_period', 3),
                         bb_roll=p.get('roll_window', 60),
                         bb_w_nbbw=p.get('w_nbbw', 0.5), bb_w_roc=p.get('w_roc', 0.3),
-                        bb_w_acc=p.get('w_acc', 0.2))
+                        bb_w_acc=p.get('w_acc', 0.2),
+                        prt_periods=p.get('prt_periods', (5, 20, 60)),
+                        prt_field_pair=p.get('prt_field_pair', 'HL'),
+                        prt_show_cross=p.get('prt_show_cross', True),
+                        prt_extend_forward=p.get('prt_extend_forward', 0))
     cerebro.run(runonce=False)  # 魔改包指标仅兼容逐根模式
 
     strat = cerebro.runstrats[0][0]
@@ -212,6 +277,22 @@ def calc_bt_indicators(df, params=None):
         'vol_ma5': df['vol'].rolling(5).mean().to_numpy(),
         'vol_ma10': df['vol'].rolling(10).mean().to_numpy(),
     }
+
+    # 周期回归趋势线：扁平序列（hi_a/lo_a/cx_a…）便于前端 cutIndicators 按 bar 数截断
+    prt = inds.get('prt')
+    if prt is not None:
+        meta = getattr(prt, 'plot_meta', None) or {}
+        slots = meta.get('slots', [])
+        prt_out = {
+            'upper': meta.get('upper_field', 'high'),
+            'lower': meta.get('lower_field', 'low'),
+            'periods': [int(s['period']) for s in slots],
+            'colors': [s['color'] for s in slots],
+        }
+        for s in slots:
+            for k in ('hi', 'lo', 'cx'):
+                prt_out['%s_%s' % (k, s['slot'])] = _arr(getattr(prt.lines, '%s_%s' % (k, s['slot'])))
+        out['prtrend'] = prt_out
 
     # 与 pandas 版一致的序列→list 转换（NaN → None，保留 4 位小数）
     def ser2list(s):

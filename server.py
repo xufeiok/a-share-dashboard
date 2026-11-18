@@ -17,6 +17,7 @@ from flask_cors import CORS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import socket
 import threading
+import traceback
 
 # 本地私密配置（不入库）：环境变量优先，其次同目录 config_local.json
 def _load_local_config():
@@ -36,9 +37,10 @@ socket.setdefaulttimeout(12)
 TUSHARE_TOKEN = os.environ.get('TUSHARE_TOKEN') or _LOCAL_CFG.get('tushare_token') or ''
 try:
     import tushare as ts
-    if TUSHARE_TOKEN:
-        ts.set_token(TUSHARE_TOKEN)
-    _tushare_pro = ts.pro_api()
+    # 直接把 token 传给 pro_api，不用 ts.set_token（后者会写用户目录 tk.csv，无写权限时初始化失败）
+    if not TUSHARE_TOKEN:
+        raise RuntimeError('TUSHARE_TOKEN 未配置')
+    _tushare_pro = ts.pro_api(TUSHARE_TOKEN)
     TUSHARE_READY = True
 except Exception as _e:
     TUSHARE_READY = False
@@ -4369,17 +4371,23 @@ def _sim_plan_body(d):
 @app.before_request
 def _sim_mode_guard():
     """所有 /api/sim/* 默认走回测账本；?mode=live（或 body.mode）切到实盘账本。
-    回测与实盘是两个独立 sqlite 库，资金/持仓/成交/条件单互不影响。"""
+    回测与实盘各自独立 sqlite 库；实盘再用 ?acct=<id> 切到某个实盘账户，
+    每个实盘账户资金/持仓/成交/条件单/定时任务完全隔离。"""
     if request.path.startswith('/api/sim/'):
+        _sim_store.use_acct(request.args.get('acct'))
         _sim_store.use_mode(request.args.get('mode') or 'backtest')
 
 
 def _sim_apply_body_mode(d):
-    """POST body 里的 mode 优先于 query（前端表单切模式时用）。"""
+    """POST body 里的 mode / acct 优先于 query（前端表单切模式/账户时用）。"""
     m = str((d or {}).get('mode') or '').strip().lower()
     if m in ('backtest', 'live'):
         _sim_store.use_mode(m)
         _sim_store.init()
+    if (d or {}).get('acct'):
+        _sim_store.use_acct(d.get('acct'))
+        if _sim_store.current_mode() == 'live':
+            _sim_store.init()
 
 
 @app.route('/api/sim/plan/validate', methods=['POST'])
@@ -4605,6 +4613,79 @@ def api_sim_cancel():
     return jsonify(_sim_broker.cancel(d.get('order_id'), d.get('asof') or ''))
 
 
+def _sim_acct_view(aid):
+    """读某个实盘账户的概览（临时切账本，读完恢复当前线程账本）。"""
+    pm, pa = _sim_store.current_mode(), _sim_store.current_acct()
+    try:
+        _sim_store.use_mode('live')
+        _sim_store.use_acct(aid)
+        _sim_store.init()
+        return _sim_broker.account_view({})
+    except Exception:
+        return {}
+    finally:
+        _sim_store.use_mode(pm)
+        _sim_store.use_acct(pa)
+
+
+@app.route('/api/sim/accts', methods=['GET', 'POST'])
+def api_sim_accts():
+    """实盘账户清单：GET 列表（含每个账户概览）；POST 新建 / 改名 / 删除。
+
+    新建时可带 plan_file / plan_name，记录该实盘由哪份批次计划 JSON 创建，
+    前端据此在实盘模块与个股行情子列表上标注来源文件。
+    """
+    created = None
+    if request.method == 'POST':
+        d = request.get_json(force=True, silent=True) or {}
+        act = str(d.get('action') or 'create').strip().lower()
+        if act == 'create':
+            created = _sim_store.add_acct(d.get('name'), d.get('cash'),
+                                          d.get('plan_file'), d.get('plan_name'))
+        elif act == 'rename':
+            if not _sim_store.rename_acct(d.get('id'), d.get('name')):
+                return jsonify({'ok': False, 'reason': '账户不存在'}), 400
+        elif act == 'delete':
+            ok, reason = _sim_store.delete_acct(d.get('id'))
+            if not ok:
+                return jsonify({'ok': False, 'reason': reason}), 400
+    out = []
+    for a in _sim_store.list_accts():
+        acc = _sim_acct_view(a['id'])
+        out.append({
+            'id': a['id'], 'name': a.get('name') or a['id'],
+            'builtin': bool(a.get('builtin') or a['id'] == _sim_store.DEFAULT_ACCT),
+            'created_at': a.get('created_at') or '',
+            'plan_file': a.get('plan_file') or '',
+            'plan_name': a.get('plan_name') or '',
+            'nav': acc.get('nav', 0), 'cash': acc.get('cash', 0),
+            'market_value': acc.get('market_value', 0),
+            'initial_cash': acc.get('initial_cash', 0),
+            'total_return_pct': acc.get('total_return_pct', 0),
+            'positions': len(acc.get('positions') or [])
+        })
+    return jsonify({'ok': True, 'accts': out, 'created': created})
+
+
+@app.route('/api/sim/plan/upload', methods=['POST'])
+def api_sim_plan_upload():
+    """把前端选中的 JSON 落到服务端，返回路径（定时任务必须基于服务端文件）。"""
+    d = request.get_json(force=True, silent=True) or {}
+    text = d.get('content') or ''
+    if not text.strip():
+        return jsonify({'ok': False, 'reason': '内容为空'}), 400
+    nm = os.path.basename(str(d.get('name') or 'plan.json'))
+    nm = re.sub(r'[^0-9A-Za-z_.\-\u4e00-\u9fa5]', '_', nm)[:80] or 'plan.json'
+    if not nm.lower().endswith('.json'):
+        nm += '.json'
+    d2 = os.path.join(BASE_DIR, 'trade_inbox')
+    os.makedirs(d2, exist_ok=True)
+    p = os.path.join(d2, nm)
+    with open(p, 'w', encoding='utf-8') as f:
+        f.write(text)
+    return jsonify({'ok': True, 'path': p, 'name': nm})
+
+
 @app.route('/api/sim/account')
 def api_sim_account():
     lp = {}
@@ -4694,6 +4775,32 @@ def _bt_path(name):
     return p if os.path.exists(p) else ''
 
 
+def _bt_norm_code(c):
+    """把 600036 / 600036.SH 统一成 ts_code 形式，便于查中文名与匹配 K 线。"""
+    c = str(c or '').strip().upper()
+    if not c or '.' in c:
+        return c
+    if len(c) == 6 and c.isdigit():
+        return c + ('.SH' if c[0] in ('6', '9') else '.SZ')
+    return c
+
+
+def _bt_codes(d):
+    """提取回测结果涉及的股票列表（去重保序）。多标的文件从每笔委托取 code，
+    单标的文件回退到顶层 code / strategy_data.code。"""
+    s = d.get('strategy_data') or {}
+    fb = _bt_norm_code(d.get('code')) or _bt_norm_code(s.get('code'))
+    seen, out = set(), []
+    for o in (((d.get('orders_data') or {}).get('orders')) or []):
+        c = _bt_norm_code(o.get('code') or o.get('ts_code') or o.get('symbol') or fb)
+        if c and c not in seen:
+            seen.add(c)
+            out.append({'code': c})
+    if not out and fb:
+        out.append({'code': fb})
+    return out
+
+
 def _bt_meta(p):
     """读文件头信息（策略名 / 指标 / 区间）。按 mtime+size 缓存，避免每次列表都解析 10MB。"""
     try:
@@ -4705,12 +4812,17 @@ def _bt_meta(p):
             d = json.load(f)
         s = d.get('strategy_data') or {}
         ohlcv = ((d.get('ohlcv_data') or {}).get('data')) or []
+        codes = _bt_codes(d)
+        names = _sim_names([c['code'] for c in codes])
+        for c in codes:
+            c['name'] = names.get(c['code'], '')
         meta = {
             'file': os.path.basename(p),
             'strategy': s.get('name') or os.path.basename(p),
             'timeframe': s.get('timeframe') or '',
             'description': s.get('description') or '',
             'code': str(d.get('code') or '').strip().upper(),
+            'codes': codes,
             'source': s.get('filename') or '',
             'metrics': d.get('metrics_data') or {},
             'start': (ohlcv[0].get('datetime') or '') if ohlcv else '',
@@ -4776,11 +4888,21 @@ def api_bt_detail():
     orders = ((d.get('orders_data') or {}).get('orders')) or []
     trades = ((d.get('trades_data') or {}).get('trades')) or []
     analysis = d.get('analysis_data') or {}
+    codes = _bt_codes(d)
+    names = _sim_names([c['code'] for c in codes])
+    for c in codes:
+        c['name'] = names.get(c['code'], '')
+    fb = codes[0]['code'] if codes else ''
+    for o in orders:
+        oc = _bt_norm_code(o.get('code') or o.get('ts_code') or o.get('symbol') or fb)
+        o['code'] = oc
+        o['name'] = names.get(oc, '')
     return jsonify({
         'ok': True,
         'file': os.path.basename(p),
         'strategy': {'name': s.get('name') or '', 'timeframe': s.get('timeframe') or '',
                      'description': s.get('description') or '', 'code': str(d.get('code') or '').strip().upper()},
+        'codes': codes,
         'metrics': d.get('metrics_data') or {},
         'analysis': {k: analysis.get(k) for k in ('drawdown', 'sharpe', 'returns', 'sqn', 'tradeanalyzer')},
         'equity': [{'t': x.get('datetime'), 'v': x.get('value')} for x in _bt_down(equity)],
@@ -4791,7 +4913,7 @@ def api_bt_detail():
 
 @app.route('/api/bt/marks')
 def api_bt_marks():
-    """把回测成交映射成 K 线买卖点；code 不匹配时返回空，避免串图。"""
+    """把回测成交映射成 K 线买卖点；多标的文件按每笔委托自带的 code 过滤，避免串图。"""
     p = _bt_path(request.args.get('file'))
     code = str(request.args.get('code') or '').strip().upper()
     if not p:
@@ -4808,15 +4930,21 @@ def api_bt_marks():
             if mm:
                 own = mm.group(1)
                 break
-    if code:
-        a, b = re.sub(r'\D', '', own), re.sub(r'\D', '', code)
-        if not a or (a and b and a != b):
-            return jsonify({'marks': []})
+    want = re.sub(r'\D', '', code)
+    if want and not own and not (((d.get('orders_data') or {}).get('orders')) or []):
+        return jsonify({'marks': []})
     out = []
     for o in (((d.get('orders_data') or {}).get('orders')) or []):
         dt = str(o.get('datetime') or '')
         side = str(o.get('type') or '').lower()
         if not dt or side not in ('buy', 'sell'):
+            continue
+        oc = _bt_norm_code(o.get('code') or o.get('ts_code') or o.get('symbol') or own)
+        num = re.sub(r'\D', '', oc) or re.sub(r'\D', '', own)
+        # 指定了 code 时只保留匹配该标的的成交；匹配不上直接跳过（不串图）
+        if want and num and num != want:
+            continue
+        if want and not num:
             continue
         try:
             px = float(o.get('price') or 0)
@@ -4826,8 +4954,18 @@ def api_bt_marks():
         if px <= 0:
             continue
         out.append({'asof': dt[:10], 'side': side, 'price': round(px, 3),
-                    'qty': round(qty, 2), 'code': own or code})
+                    'qty': round(qty, 2), 'code': oc or own or code})
     return jsonify({'marks': out})
+
+
+@app.route('/api/bt/symbols')
+def api_bt_symbols():
+    """轻量返回某个回测结果文件涉及的股票列表（读缓存 meta，不解析大文件）。"""
+    p = _bt_path(request.args.get('file'))
+    if not p:
+        return jsonify({'file': '', 'symbols': []})
+    meta = _bt_meta(p)
+    return jsonify({'file': meta.get('file') or '', 'symbols': meta.get('codes') or []})
 
 
 def _bt_pins_read():
@@ -5006,13 +5144,19 @@ if __name__ == '__main__':
             _sim_store.use_mode(prev)
 
     def _sweep_live(asof=''):
-        """300s 条件单推进只针对实盘账本（回测由手动 step 推进，避免重复触发）。"""
-        prev = _sim_store.current_mode()
+        """300s 条件单推进覆盖所有实盘账户（回测由手动 step 推进，避免重复触发）。"""
+        pm, pa = _sim_store.current_mode(), _sim_store.current_acct()
         try:
             _sim_store.use_mode('live')
-            return _sim_sweep_conditions(asof)
+            for a in _sim_store.list_accts():
+                _sim_store.use_acct(a['id'])
+                try:
+                    _sim_sweep_conditions(asof)
+                except Exception:
+                    traceback.print_exc()
         finally:
-            _sim_store.use_mode(prev)
+            _sim_store.use_acct(pa)
+            _sim_store.use_mode(pm)
 
     _sim_auto.set_plan_executor(_plan_exec_live)
     _sim_auto.set_sweeper(_sweep_live)

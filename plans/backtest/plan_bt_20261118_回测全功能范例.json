@@ -1,0 +1,199 @@
+{
+  "version": "1.0",
+  "mode": "backtest",
+  "timezone": "Asia/Shanghai",
+  "market": "CN",
+  "name": "回测全功能范例（2026-09-01 建仓）",
+  "generated_at": "2026-11-18 09:00:00",
+  "source": "手工编写 · 看板回测模式演示",
+  "note": "覆盖 3 种 schedule(once/daily/monthly_nth_weekday)、6 种 qty.type(shares/amount/pct_nav/pct/all)、3 种 price.type(market/close/pct_of_ref)、5 种 exits.kind(tp/sl/trail/fixed_price/timed)，另含 2 条必然被拒的委托与 1 个停用批次。批次时间落在历史区间（2026-09-01），执行后会自动回放到最新交易日。想看空账本从零跑，先点「重置」再点「执行」。",
+
+  "defaults": {
+    "price": { "type": "market" },
+    "qty": { "type": "shares", "value": 100 },
+    "exit_qty": { "type": "pct", "value": 1.0 }
+  },
+
+  "batches": [
+    {
+      "id": "bt_build_20260901",
+      "name": "2026-09-01 建仓 7 只（含分批卖出条件）",
+      "enabled": true,
+      "schedule": {
+        "type": "once",
+        "date": "2026-09-01",
+        "time": "09:31"
+      },
+      "items": [
+        {
+          "code": "600036.SH",
+          "name": "招商银行",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 1000 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "tp", "value": 0.08, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.05, "qty": { "type": "pct", "value": 0.5 } }
+          ]
+        },
+        {
+          "code": "600519.SH",
+          "name": "贵州茅台",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "tp", "value": 0.15, "qty": { "type": "pct", "value": 1.0 } }
+          ]
+        },
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "buy",
+          "qty": { "type": "amount", "value": 6000 },
+          "price": { "type": "pct_of_ref", "value": 0.002 },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.03, "qty": { "type": "pct", "value": 0.4 } },
+            { "seq": 2, "kind": "tp", "value": 0.06, "qty": { "type": "pct", "value": 0.3 } },
+            { "seq": 3, "kind": "trail", "value": 0.02, "arm": 0.04, "qty": { "type": "pct", "value": 1.0 } },
+            { "seq": 4, "kind": "timed", "due": "2026-11-30", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "000002.SZ",
+          "name": "万科A",
+          "side": "buy",
+          "qty": { "type": "amount", "value": 20000 },
+          "price": { "type": "close" },
+          "exits": [
+            { "seq": 1, "kind": "fixed_price", "value": 3.60, "qty": { "type": "pct", "value": 0.6 } },
+            { "seq": 2, "kind": "trail", "value": 0.03, "arm": 0.05, "qty": { "type": "pct", "value": 1.0 } }
+          ]
+        },
+        {
+          "code": "601318.SH",
+          "name": "中国平安",
+          "side": "buy",
+          "qty": { "type": "pct_nav", "value": 0.02 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "timed", "due": "2026-10-16", "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "300750.SZ",
+          "name": "宁德时代",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.06, "qty": { "type": "pct", "value": 0.5 } },
+            { "seq": 2, "kind": "trail", "value": 0.04, "arm": 0.03, "qty": { "type": "all" } }
+          ]
+        },
+        {
+          "code": "300059.SZ",
+          "name": "东方财富",
+          "side": "buy",
+          "qty": { "type": "amount", "value": 20000 },
+          "price": { "type": "market" },
+          "exits": [
+            { "seq": 1, "kind": "sl", "value": 0.12, "qty": { "type": "pct", "value": 1.0 } },
+            { "seq": 2, "kind": "tp", "value": 0.10, "qty": { "type": "pct", "value": 1.0 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bt_reject_demo",
+      "name": "失败用例演示（废单：买入非整手 / 卖出无持仓）",
+      "enabled": true,
+      "schedule": {
+        "type": "once",
+        "date": "2026-09-02",
+        "time": "09:31"
+      },
+      "items": [
+        {
+          "code": "688981.SH",
+          "name": "中芯国际",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 150 },
+          "price": { "type": "market" },
+          "exits": []
+        },
+        {
+          "code": "002594.SZ",
+          "name": "比亚迪",
+          "side": "sell",
+          "qty": { "type": "pct", "value": 0.5 },
+          "price": { "type": "market" },
+          "exits": []
+        }
+      ]
+    },
+    {
+      "id": "bt_daily_weekend",
+      "name": "每交易日尾盘巡检（仅周末触发，今天不会执行）",
+      "enabled": true,
+      "schedule": {
+        "type": "daily",
+        "time": "14:55",
+        "weekdays": [6, 7]
+      },
+      "items": [
+        {
+          "code": "600036.SH",
+          "name": "招商银行",
+          "side": "sell",
+          "qty": { "type": "pct", "value": 0.1 },
+          "price": { "type": "market" },
+          "exits": []
+        }
+      ]
+    },
+    {
+      "id": "bt_monthly_rebalance",
+      "name": "每月首个周一调仓（2027-01-01 起生效，当前未到）",
+      "enabled": true,
+      "schedule": {
+        "type": "monthly_nth_weekday",
+        "nth": 1,
+        "weekday": 1,
+        "time": "10:00",
+        "date_from": "2027-01-01",
+        "date_to": "2027-12-31"
+      },
+      "items": [
+        {
+          "code": "000001.SZ",
+          "name": "平安银行",
+          "side": "sell",
+          "qty": { "type": "pct", "value": 0.3 },
+          "price": { "type": "market" },
+          "exits": []
+        }
+      ]
+    },
+    {
+      "id": "bt_disabled",
+      "name": "停用批次（enabled=false，用于查看「已跳过」展示）",
+      "enabled": false,
+      "schedule": {
+        "type": "once",
+        "date": "2026-09-01",
+        "time": "09:31"
+      },
+      "items": [
+        {
+          "code": "000858.SZ",
+          "name": "五粮液",
+          "side": "buy",
+          "qty": { "type": "shares", "value": 100 },
+          "price": { "type": "market" },
+          "exits": []
+        }
+      ]
+    }
+  ]
+}
